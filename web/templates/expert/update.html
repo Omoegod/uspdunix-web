@@ -1,0 +1,172 @@
+{{define "expert_update"}}
+{{template "expert_page_start" .}}
+
+<div class="card sys-page">
+  <div class="rf-conf-head">
+    <h3>Обновление uspd-web</h3>
+    <div class="rf-conf-toolbar">
+      <button type="button" class="btn-primary" id="updCheckBtn" onclick="updCheck()">Проверить</button>
+      <button type="button" class="btn-primary" id="updApplyBtn" onclick="updApply()" disabled>Установить обновление</button>
+    </div>
+  </div>
+
+  <p class="muted" style="margin:0 0 16px">
+    Сравнение текущей версии на УСПД с последним релизом в GitHub.
+    При установке текущие файлы заменяются и сервис перезапускается автоматически.
+  </p>
+
+  <div id="updStatus" class="muted" style="margin-bottom:16px">Нажмите «Проверить»…</div>
+
+  <div class="rf-conf-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Версии</div>
+      <div class="rf-cfgnode-fields sys-fields">
+        <div class="rf-conf-field">
+          <label>Текущая версия</label>
+          <input id="updCurrent" readonly value="—" />
+        </div>
+        <div class="rf-conf-field">
+          <label>Последняя в репозитории</label>
+          <input id="updLatest" readonly value="—" />
+        </div>
+        <div class="rf-conf-field">
+          <label>Репозиторий релизов</label>
+          <input id="updRepo" readonly value="—" />
+        </div>
+        <div class="rf-conf-field">
+          <label>Каталог установки</label>
+          <input id="updInstall" readonly value="—" />
+        </div>
+      </div>
+    </section>
+
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Релиз</div>
+      <div class="rf-cfgnode-fields sys-fields">
+        <div class="rf-conf-field rf-conf-field--span2">
+          <label>Дата публикации</label>
+          <input id="updPublished" readonly value="—" />
+        </div>
+        <div class="rf-conf-field rf-conf-field--span2">
+          <label>Ссылка</label>
+          <input id="updReleaseUrl" readonly value="—" />
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="updWarn" class="rf-netrfs-warn" style="display:none;margin-top:16px"></div>
+</div>
+
+{{template "expert_page_end" .}}
+
+<script>
+(function () {
+  let latestVersion = '';
+  let onDevice = false;
+
+  function setStatus(text, kind) {
+    const el = document.getElementById('updStatus');
+    el.textContent = text;
+    el.className = kind === 'err' ? 'error' : (kind === 'ok' ? 'ok' : 'muted');
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('ru-RU');
+  }
+
+  window.updCheck = async function () {
+    const btn = document.getElementById('updCheckBtn');
+    const applyBtn = document.getElementById('updApplyBtn');
+    btn.disabled = true;
+    applyBtn.disabled = true;
+    setStatus('Проверка…', '');
+
+    try {
+      const r = await fetch('/api/web/update/status', { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Ошибка проверки');
+
+      document.getElementById('updCurrent').value = d.current_version || '—';
+      document.getElementById('updLatest').value = d.latest_version || '—';
+      document.getElementById('updRepo').value = d.release_repo || '—';
+      document.getElementById('updInstall').value = d.install_path || '—';
+      document.getElementById('updPublished').value = fmtDate(d.published_at);
+      document.getElementById('updReleaseUrl').value = d.release_url || '—';
+      latestVersion = d.latest_version || '';
+      onDevice = !!d.on_device;
+
+      const warn = document.getElementById('updWarn');
+      if (d.latest_error) {
+        setStatus('Не удалось получить последний релиз: ' + d.latest_error, 'err');
+        warn.style.display = 'none';
+        return;
+      }
+
+      if (d.update_available) {
+        setStatus('Доступно обновление ' + d.current_version + ' → ' + d.latest_version, 'ok');
+        if (onDevice) {
+          applyBtn.disabled = false;
+          warn.style.display = 'block';
+          warn.textContent = 'После нажатия «Установить» соединение может прерваться на 10–30 секунд, пока выполняется обновление.';
+        } else {
+          warn.style.display = 'block';
+          warn.textContent = 'Установка доступна только на сборке uspd-web, запущенной на самом УСПД (onDevice=true).';
+        }
+      } else {
+        setStatus('Установлена актуальная версия', 'ok');
+        warn.style.display = 'none';
+      }
+    } catch (e) {
+      setStatus(e.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  window.updApply = async function () {
+    if (!latestVersion) return;
+    if (!confirm('Установить uspd-web ' + latestVersion + '?\n\nТекущая версия будет заменена, сервис перезапустится.')) return;
+
+    const applyBtn = document.getElementById('updApplyBtn');
+    applyBtn.disabled = true;
+    setStatus('Запуск обновления…', '');
+
+    try {
+      const r = await fetch('/api/web/update/apply', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: latestVersion }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Ошибка обновления');
+
+      setStatus(d.message || 'Обновление запущено', 'ok');
+      document.getElementById('updWarn').style.display = 'block';
+      document.getElementById('updWarn').textContent = 'Ожидание перезапуска… Лог: /tmp/uspd-web-update.log';
+
+      let tries = 0;
+      const poll = setInterval(async function () {
+        tries++;
+        try {
+          await fetch('/api/web/update/status', { credentials: 'same-origin' });
+          clearInterval(poll);
+          setTimeout(function () { location.reload(); }, 1500);
+        } catch (_) {
+          if (tries > 60) clearInterval(poll);
+        }
+      }, 2000);
+    } catch (e) {
+      setStatus(e.message, 'err');
+      applyBtn.disabled = false;
+    }
+  };
+
+  updCheck();
+})();
+</script>
+{{end}}
