@@ -1,0 +1,42 @@
+{{define "expert_users"}}
+{{template "expert_page_start" .}}
+
+<div class="card users-page">
+  <div class="rf-conf-head">
+    <h3>Пользователи</h3>
+    <div class="rf-conf-toolbar">
+      <span class="muted">Всего: {{.UserCount}}</span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Список профилей</div>
+      {{if .Users}}
+      <div class="users-table-wrap">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Имя</th>
+              <th>Маска прав</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Users}}
+            <tr>
+              <td>{{.Username}}</td>
+              <td class="users-mask">0x{{printf "%X" .PermissionMask}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <p class="users-empty muted">Нет пользователей</p>
+      {{end}}
+    </section>
+  </div>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

@@ -1,0 +1,985 @@
+{{define "expert_endpoints"}}
+{{template "expert_page_start" .}}
+
+<div class="card ep-page">
+  <div class="rf-conf-head">
+    <h3>Устройства и группы</h3>
+    <div class="rf-conf-toolbar">
+      <span id="epStatus" class="muted"></span>
+    </div>
+  </div>
+
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+  <div class="ep-split">
+    <!-- LEFT: Devices -->
+    <section class="rf-conf-section ep-split-devices">
+      <div class="rf-conf-section-title">Устройства <span class="muted" id="epCountLabel">(…)</span></div>
+      <div class="ep-table-toolbar">
+        <button type="button" class="btn-secondary" id="epEditBtn" disabled onclick="epOpenEdit()">Изменить</button>
+        <button type="button" class="btn-secondary" id="epDeleteBtn" disabled onclick="epDeleteSelected()">Удалить выбранные</button>
+      </div>
+      <div class="hw-table-wrap ep-devices-wrap">
+        <table class="hw-table ep-table" id="epTable">
+          <thead>
+            <tr>
+              <th class="ep-col-check"><input type="checkbox" id="epCheckAll" title="Выбрать все" /></th>
+              <th>#</th>
+              <th>Тип</th>
+              <th>Описание</th>
+              <th>Заводской номер</th>
+            </tr>
+          </thead>
+          <tbody id="epTableBody">
+            <tr><td colspan="5" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="epEditPanel" class="ep-edit-panel" hidden>
+        <div class="rf-conf-section-title">Изменение устройства</div>
+        <form id="epEditForm" class="sys-form" onsubmit="return epSaveEdit(event)">
+          <input type="hidden" id="epEditIdx" value="" />
+          <div class="rf-cfgnode-fields ep-edit-fields">
+            <div class="rf-conf-field">
+              <label>Описание</label>
+              <input id="epEditLabel" type="text" maxlength="64" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Заводской номер</label>
+              <input id="epEditSerial" type="text" maxlength="16" placeholder="00000001" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Основной пароль</label>
+              <input id="epEditMainPass" type="text" maxlength="8" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Дополнительный пароль</label>
+              <input id="epEditAdditPass" type="text" maxlength="8" />
+            </div>
+          </div>
+          <div class="sys-actions">
+            <button type="submit" class="btn-primary">Сохранить</button>
+            <button type="button" class="btn-secondary" onclick="epCloseEdit()">Отмена</button>
+          </div>
+        </form>
+      </div>
+
+      <nav class="ep-tabs" id="epTabs">
+        <button type="button" class="ep-tab active" data-tab="general" onclick="epSwitchTab('general')">Общие</button>
+        <button type="button" class="ep-tab" data-tab="gss" onclick="epSwitchTab('gss')">GSS</button>
+        <button type="button" class="ep-tab" data-tab="mbus" onclick="epSwitchTab('mbus')">M-BUS</button>
+        <button type="button" class="ep-tab" data-tab="dlms" onclick="epSwitchTab('dlms')">DLMS</button>
+        <button type="button" class="ep-tab" data-tab="group" onclick="epSwitchTab('group')">EP_GROUP</button>
+      </nav>
+
+      <div id="epPaneGeneral" class="ep-pane active">
+        <p class="muted ep-pane-lead">Выберите устройства и удалите их, либо добавьте в группу справа.</p>
+      </div>
+
+      <div id="epPaneGss" class="ep-pane">
+        <div class="rf-cfgnode-fields ep-add-fields">
+          <div class="rf-conf-field">
+            <label>Заводской номер</label>
+            <input id="epGssSerial" type="text" maxlength="16" placeholder="00000001" />
+          </div>
+        </div>
+        <div class="ep-add-actions">
+          <button type="button" class="btn-primary" onclick="epAddSingle(1)">Добавить</button>
+          <button type="button" class="btn-secondary" onclick="epPickFile(1)">Добавить из файла</button>
+        </div>
+      </div>
+
+      <div id="epPaneMbus" class="ep-pane">
+        <div class="rf-cfgnode-fields ep-add-fields">
+          <div class="rf-conf-field">
+            <label>Заводской номер</label>
+            <input id="epMbusSerial" type="text" maxlength="16" placeholder="00000001" />
+          </div>
+        </div>
+        <div class="ep-add-actions">
+          <button type="button" class="btn-primary" onclick="epAddSingle(2)">Добавить</button>
+          <button type="button" class="btn-secondary" onclick="epPickFile(2)">Добавить из файла</button>
+        </div>
+      </div>
+
+      <div id="epPaneDlms" class="ep-pane">
+        <div class="rf-cfgnode-fields ep-add-fields ep-dlms-fields">
+          <div class="rf-conf-field">
+            <label>Профиль</label>
+            <select id="epDlmsProfile">
+              <option value="NORAX3">Norax3</option>
+              <option value="CLOU1">Clou1</option>
+              <option value="NORAX3_NEW">Norax3_new</option>
+              <option value="NORAX3_SREZ">Norax3_srez</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Заводской номер</label>
+            <input id="epDlmsSerial" type="text" maxlength="16" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Адрес</label>
+            <input id="epDlmsAddr" type="number" min="0" max="65535" value="100" />
+          </div>
+          <div class="rf-conf-field ep-pass-field">
+            <label class="ep-check-label"><input type="checkbox" id="epDlmsSetRead" /> Задать пароль чтения</label>
+            <input id="epDlmsReadPass" type="text" maxlength="32" disabled />
+          </div>
+          <div class="rf-conf-field ep-pass-field">
+            <label class="ep-check-label"><input type="checkbox" id="epDlmsSetWrite" /> Задать пароль записи</label>
+            <input id="epDlmsWritePass" type="text" maxlength="32" disabled />
+          </div>
+        </div>
+        <div class="ep-add-actions">
+          <button type="button" class="btn-primary" onclick="epAddDlms()">Добавить</button>
+          <button type="button" class="btn-secondary" onclick="epPickFile(3)">Добавить из файла</button>
+        </div>
+      </div>
+
+      <div id="epPaneGroup" class="ep-pane">
+        <div class="rf-cfgnode-fields ep-add-fields">
+          <div class="rf-conf-field">
+            <label>Заводской номер</label>
+            <input id="epGroupSerial" type="text" maxlength="16" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Группа</label>
+            <select id="epGroupIdx"></select>
+          </div>
+          <div class="rf-conf-field ep-check-field">
+            <label class="ep-check-label"><input type="checkbox" id="epGroupSrez" /> Срезы</label>
+          </div>
+          <div class="rf-conf-field">
+            <label>Max</label>
+            <input id="epGroupMax" type="number" min="0" value="2880" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Listen</label>
+            <input id="epGroupListen" type="number" min="0" value="96" />
+          </div>
+        </div>
+        <div class="ep-add-actions">
+          <button type="button" class="btn-primary" onclick="epAddGroupEp()">Добавить</button>
+        </div>
+      </div>
+
+      <input type="file" id="epFileInput" accept=".txt,.csv,text/plain" hidden />
+    </section>
+
+    <!-- RIGHT: Groups -->
+    <section class="rf-conf-section ep-split-groups">
+      <div class="rf-conf-section-title">Группы</div>
+      <div class="ep-table-toolbar">
+        <button type="button" class="btn-secondary" onclick="grExpandAll()">Раскрыть</button>
+        <button type="button" class="btn-secondary" onclick="grCollapseAll()">Свернуть</button>
+        <button type="button" class="btn-primary" onclick="grAdd()">Добавить группу</button>
+        <button type="button" class="btn-secondary" id="grDeleteBtn" disabled onclick="grDeleteSelected()">Удалить выбранные</button>
+        <button type="button" class="btn-primary" id="grAddMembersBtn" disabled onclick="grAddSelectedDevices()">В группу →</button>
+      </div>
+      <div class="hw-table-wrap ep-groups-wrap">
+        <table class="hw-table ep-groups-table" id="grTable">
+          <thead>
+            <tr>
+              <th class="ep-col-check"><input type="checkbox" id="grCheckAll" title="Выбрать все" /></th>
+              <th class="ep-col-exp"></th>
+              <th>#</th>
+              <th>Участников</th>
+            </tr>
+          </thead>
+          <tbody id="grTableBody">
+            <tr><td colspan="4" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted ep-pane-lead" id="grHint">Выделите устройства слева и группу справа, затем «В группу →».</p>
+    </section>
+  </div>
+</div>
+
+<script id="epItemsJson" type="application/json">{{.EndpointsJSON}}</script>
+<script id="epGroupsJson" type="application/json">{{.EpGroupsJSON}}</script>
+<script>
+(function () {
+  const EP_TYPE = { GSS: 1, MBUS: 2, DLMS: 3, GROUP: 5 };
+  const MAX_FILE = 399;
+  let fileEpType = 0;
+
+  function parseJson(id) {
+    try {
+      const el = document.getElementById(id);
+      let parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function api(method, url, body) {
+    const opts = { method: method, headers: {} };
+    if (body != null) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(url, opts).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    });
+  }
+
+  function setStatus(msg, ok) {
+    const el = document.getElementById('epStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  let items = parseJson('epItemsJson');
+  let epGroups = parseJson('epGroupsJson');
+  const groupMembers = {}; // grIdx -> [epIdx...]
+  const groupExpanded = {};
+
+  const epSelected = {};
+  let epLastClicked = null;
+  let epDragActive = false;
+  let epDragSetTo = true;
+
+  const grSelected = {};
+  let grLastClicked = null;
+  let grDragActive = false;
+  let grDragSetTo = true;
+  let grActiveIdx = null; // last focused group for "add to group"
+
+  document.addEventListener('mouseup', function () {
+    epDragActive = false;
+    grDragActive = false;
+  });
+
+  function epByIndex(idx) {
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].index === idx) return items[i];
+    }
+    return null;
+  }
+
+  function epLabel(idx) {
+    const ep = epByIndex(idx);
+    if (!ep) return '#' + idx;
+    if (ep.label) return ep.label;
+    if (ep.serial_number) return (ep.type_name || '') + ':' + ep.serial_number;
+    return (ep.type_name || 'EP') + ' #' + idx;
+  }
+
+  // ── Devices selection ──
+  function isEpSelected(idx) { return !!epSelected[idx]; }
+
+  function setEpSelected(idx, selected) {
+    if (selected) epSelected[idx] = true;
+    else delete epSelected[idx];
+    const row = document.querySelector('.ep-row[data-idx="' + idx + '"]');
+    if (row) row.classList.toggle('is-selected', selected);
+    const cb = row && row.querySelector('.ep-check');
+    if (cb) cb.checked = selected;
+  }
+
+  function setEpSelectedRange(a, b, selected) {
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    items.forEach(function (it) {
+      if (it.index >= lo && it.index <= hi) setEpSelected(it.index, selected);
+    });
+  }
+
+  function selectedEpIdxs() {
+    return Object.keys(epSelected).map(Number).sort(function (a, b) { return a - b; });
+  }
+
+  function clearEpSelection() {
+    Object.keys(epSelected).forEach(function (k) { delete epSelected[k]; });
+    epLastClicked = null;
+    document.querySelectorAll('.ep-row').forEach(function (row) {
+      row.classList.remove('is-selected');
+      const cb = row.querySelector('.ep-check');
+      if (cb) cb.checked = false;
+    });
+    const checkAll = document.getElementById('epCheckAll');
+    if (checkAll) {
+      checkAll.checked = false;
+      checkAll.indeterminate = false;
+    }
+  }
+
+  function refreshEpToolbar() {
+    const sel = selectedEpIdxs();
+    document.getElementById('epEditBtn').disabled = sel.length !== 1;
+    document.getElementById('epDeleteBtn').disabled = sel.length === 0;
+    const checkAll = document.getElementById('epCheckAll');
+    if (checkAll && items.length) {
+      checkAll.checked = sel.length === items.length;
+      checkAll.indeterminate = sel.length > 0 && sel.length < items.length;
+    }
+    refreshGrAddBtn();
+  }
+
+  function bindEpSelection() {
+    const tbody = document.getElementById('epTableBody');
+    if (!tbody) return;
+    const checkAll = document.getElementById('epCheckAll');
+    if (checkAll) {
+      checkAll.onchange = function () {
+        if (checkAll.checked) {
+          items.forEach(function (it) { setEpSelected(it.index, true); });
+        } else {
+          clearEpSelection();
+        }
+        refreshEpToolbar();
+      };
+    }
+    tbody.querySelectorAll('.ep-check').forEach(function (cb) {
+      cb.onchange = function () {
+        const idx = Number(cb.dataset.idx);
+        setEpSelected(idx, cb.checked);
+        epLastClicked = idx;
+        refreshEpToolbar();
+      };
+    });
+    tbody.querySelectorAll('.ep-row').forEach(function (row) {
+      row.onmousedown = function (e) {
+        if (e.button !== 0) return;
+        const idx = Number(row.dataset.idx);
+        if (isNaN(idx)) return;
+        const isCheckbox = e.target && e.target.classList && e.target.classList.contains('ep-check');
+        if (!isCheckbox) e.preventDefault();
+        if (e.shiftKey && epLastClicked != null) {
+          setEpSelectedRange(epLastClicked, idx, true);
+          epDragSetTo = true;
+        } else {
+          const next = !isEpSelected(idx);
+          setEpSelected(idx, next);
+          epDragSetTo = next;
+        }
+        epLastClicked = idx;
+        epDragActive = true;
+        refreshEpToolbar();
+      };
+      row.onmouseover = function (e) {
+        if (!epDragActive || e.buttons !== 1) return;
+        const idx = Number(row.dataset.idx);
+        if (isNaN(idx)) return;
+        setEpSelected(idx, epDragSetTo);
+        refreshEpToolbar();
+      };
+    });
+  }
+
+  function renderEpTable() {
+    const tbody = document.getElementById('epTableBody');
+    const countLabel = document.getElementById('epCountLabel');
+    if (countLabel) countLabel.textContent = '(' + items.length + ')';
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Нет устройств</td></tr>';
+      clearEpSelection();
+      refreshEpToolbar();
+      return;
+    }
+    const valid = {};
+    items.forEach(function (it) { valid[it.index] = true; });
+    Object.keys(epSelected).forEach(function (k) {
+      if (!valid[k]) delete epSelected[k];
+    });
+    tbody.innerHTML = items.map(function (it) {
+      const sel = isEpSelected(it.index);
+      return (
+        '<tr class="ep-row' + (sel ? ' is-selected' : '') + '" data-idx="' + it.index + '">' +
+        '<td class="ep-col-check"><input type="checkbox" class="ep-check" data-idx="' + it.index + '"' + (sel ? ' checked' : '') + ' /></td>' +
+        '<td>' + it.index + '</td>' +
+        '<td>' + (it.type_name || '') + '</td>' +
+        '<td class="ep-label">' + (it.label || '—') + '</td>' +
+        '<td class="ep-serial">' + (it.serial_number || '—') + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    bindEpSelection();
+    refreshEpToolbar();
+  }
+
+  function reloadEpList() {
+    return api('GET', '/api/endpoints').then(function (data) {
+      items = data.items || [];
+      renderEpTable();
+      fillGroupSelect();
+      return reloadGroups();
+    });
+  }
+
+  // ── Groups ──
+  function isGrSelected(idx) { return !!grSelected[idx]; }
+
+  function setGrSelected(idx, selected) {
+    if (selected) grSelected[idx] = true;
+    else delete grSelected[idx];
+    const row = document.querySelector('.gr-row[data-idx="' + idx + '"]');
+    if (row) row.classList.toggle('is-selected', selected);
+    const cb = row && row.querySelector('.gr-check');
+    if (cb) cb.checked = selected;
+    if (selected) grActiveIdx = idx;
+  }
+
+  function setGrSelectedRange(a, b, selected) {
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    epGroups.forEach(function (g) {
+      const idx = g.index;
+      if (idx >= lo && idx <= hi) setGrSelected(idx, selected);
+    });
+  }
+
+  function selectedGrIdxs() {
+    return Object.keys(grSelected).map(Number).sort(function (a, b) { return a - b; });
+  }
+
+  function refreshGrToolbar() {
+    const sel = selectedGrIdxs();
+    document.getElementById('grDeleteBtn').disabled = sel.length === 0;
+    const checkAll = document.getElementById('grCheckAll');
+    if (checkAll && epGroups.length) {
+      checkAll.checked = sel.length === epGroups.length;
+      checkAll.indeterminate = sel.length > 0 && sel.length < epGroups.length;
+    }
+    refreshGrAddBtn();
+  }
+
+  function refreshGrAddBtn() {
+    const btn = document.getElementById('grAddMembersBtn');
+    if (!btn) return;
+    const target = resolveTargetGroup();
+    btn.disabled = !(target != null && selectedEpIdxs().length > 0);
+  }
+
+  function resolveTargetGroup() {
+    const sel = selectedGrIdxs();
+    if (sel.length === 1) return sel[0];
+    if (grActiveIdx != null && isGrSelected(grActiveIdx)) return grActiveIdx;
+    if (sel.length > 0) return sel[sel.length - 1];
+    return grActiveIdx;
+  }
+
+  function loadGroupMembers(grIdx) {
+    return api('GET', '/api/endpoint-groups?members=1&idx=' + grIdx).then(function (data) {
+      groupMembers[grIdx] = data.endpoint_indices || [];
+      return groupMembers[grIdx];
+    });
+  }
+
+  function membersHtml(grIdx) {
+    const members = groupMembers[grIdx] || [];
+    if (!members.length) {
+      return '<tr class="gr-members-row" data-parent="' + grIdx + '"><td colspan="4" class="gr-members-cell"><span class="muted">Пусто</span></td></tr>';
+    }
+    const list = members.map(function (epIdx, memberIdx) {
+      return (
+        '<div class="gr-member">' +
+        '<span class="gr-member-label">' + epLabel(epIdx) + '</span>' +
+        '<button type="button" class="btn-secondary gr-member-rm" data-gr="' + grIdx + '" data-member="' + memberIdx + '">×</button>' +
+        '</div>'
+      );
+    }).join('');
+    return (
+      '<tr class="gr-members-row" data-parent="' + grIdx + '">' +
+      '<td colspan="4" class="gr-members-cell"><div class="gr-members-list">' + list + '</div></td>' +
+      '</tr>'
+    );
+  }
+
+  function renderGroupsTable() {
+    const tbody = document.getElementById('grTableBody');
+    if (!tbody) return;
+    if (!epGroups.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">Нет групп</td></tr>';
+      Object.keys(grSelected).forEach(function (k) { delete grSelected[k]; });
+      grActiveIdx = null;
+      refreshGrToolbar();
+      return;
+    }
+    const valid = {};
+    epGroups.forEach(function (g) { valid[g.index] = true; });
+    Object.keys(grSelected).forEach(function (k) {
+      if (!valid[k]) delete grSelected[k];
+    });
+    if (grActiveIdx != null && !valid[grActiveIdx]) grActiveIdx = null;
+
+    let html = '';
+    epGroups.forEach(function (g) {
+      const idx = g.index;
+      const sel = isGrSelected(idx);
+      const open = !!groupExpanded[idx];
+      html +=
+        '<tr class="gr-row' + (sel ? ' is-selected' : '') + (grActiveIdx === idx ? ' is-active' : '') + '" data-idx="' + idx + '">' +
+        '<td class="ep-col-check"><input type="checkbox" class="gr-check" data-idx="' + idx + '"' + (sel ? ' checked' : '') + ' /></td>' +
+        '<td class="ep-col-exp"><button type="button" class="gr-exp-btn" data-idx="' + idx + '" aria-label="Раскрыть">' + (open ? '▾' : '▸') + '</button></td>' +
+        '<td>' + idx + '</td>' +
+        '<td class="gr-count">' + (g.count != null ? g.count : 0) + '</td>' +
+        '</tr>';
+      if (open) html += membersHtml(idx);
+    });
+    tbody.innerHTML = html;
+    bindGrSelection();
+    bindGrExpand();
+    bindGrMemberRemove();
+    refreshGrToolbar();
+  }
+
+  function bindGrSelection() {
+    const tbody = document.getElementById('grTableBody');
+    if (!tbody) return;
+    const checkAll = document.getElementById('grCheckAll');
+    if (checkAll) {
+      checkAll.onchange = function () {
+        if (checkAll.checked) {
+          epGroups.forEach(function (g) { setGrSelected(g.index, true); });
+        } else {
+          Object.keys(grSelected).forEach(function (k) { delete grSelected[k]; });
+          tbody.querySelectorAll('.gr-row').forEach(function (row) {
+            row.classList.remove('is-selected');
+            const cb = row.querySelector('.gr-check');
+            if (cb) cb.checked = false;
+          });
+        }
+        refreshGrToolbar();
+        renderGroupsTable();
+      };
+    }
+    tbody.querySelectorAll('.gr-check').forEach(function (cb) {
+      cb.onchange = function () {
+        const idx = Number(cb.dataset.idx);
+        setGrSelected(idx, cb.checked);
+        grLastClicked = idx;
+        refreshGrToolbar();
+        highlightActiveGroup();
+      };
+    });
+    tbody.querySelectorAll('.gr-row').forEach(function (row) {
+      row.onmousedown = function (e) {
+        if (e.button !== 0) return;
+        if (e.target && e.target.closest && e.target.closest('.gr-exp-btn')) return;
+        const idx = Number(row.dataset.idx);
+        if (isNaN(idx)) return;
+        const isCheckbox = e.target && e.target.classList && e.target.classList.contains('gr-check');
+        if (!isCheckbox) e.preventDefault();
+        if (e.shiftKey && grLastClicked != null) {
+          setGrSelectedRange(grLastClicked, idx, true);
+          grDragSetTo = true;
+        } else {
+          const next = !isGrSelected(idx);
+          setGrSelected(idx, next);
+          grDragSetTo = next;
+        }
+        grLastClicked = idx;
+        grActiveIdx = idx;
+        grDragActive = true;
+        refreshGrToolbar();
+        highlightActiveGroup();
+      };
+      row.onmouseover = function (e) {
+        if (!grDragActive || e.buttons !== 1) return;
+        const idx = Number(row.dataset.idx);
+        if (isNaN(idx)) return;
+        setGrSelected(idx, grDragSetTo);
+        refreshGrToolbar();
+      };
+    });
+  }
+
+  function highlightActiveGroup() {
+    document.querySelectorAll('.gr-row').forEach(function (row) {
+      row.classList.toggle('is-active', Number(row.dataset.idx) === grActiveIdx);
+    });
+  }
+
+  function bindGrExpand() {
+    document.querySelectorAll('.gr-exp-btn').forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        const idx = Number(btn.dataset.idx);
+        toggleGroupExpand(idx);
+      };
+    });
+  }
+
+  function bindGrMemberRemove() {
+    document.querySelectorAll('.gr-member-rm').forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        const grIdx = Number(btn.dataset.gr);
+        const memberIdx = Number(btn.dataset.member);
+        setStatus('Удаление участника…');
+        api('DELETE', '/api/endpoint-groups?members=1&idx=' + grIdx + '&member_idx=' + memberIdx).then(function () {
+          setStatus('Участник удалён', true);
+          return reloadGroups();
+        }).catch(function (err) {
+          setStatus(err.message, false);
+        });
+      };
+    });
+  }
+
+  function toggleGroupExpand(idx) {
+    if (groupExpanded[idx]) {
+      delete groupExpanded[idx];
+      renderGroupsTable();
+      return;
+    }
+    setStatus('Загрузка участников…');
+    loadGroupMembers(idx).then(function () {
+      groupExpanded[idx] = true;
+      setStatus('');
+      renderGroupsTable();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  }
+
+  window.grExpandAll = function () {
+    if (!epGroups.length) return;
+    setStatus('Раскрытие групп…');
+    let chain = Promise.resolve();
+    epGroups.forEach(function (g) {
+      chain = chain.then(function () {
+        return loadGroupMembers(g.index).then(function () {
+          groupExpanded[g.index] = true;
+        });
+      });
+    });
+    chain.then(function () {
+      setStatus('');
+      renderGroupsTable();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      renderGroupsTable();
+    });
+  };
+
+  window.grCollapseAll = function () {
+    Object.keys(groupExpanded).forEach(function (k) { delete groupExpanded[k]; });
+    renderGroupsTable();
+  };
+
+  window.grAdd = function () {
+    setStatus('Добавление группы…');
+    api('POST', '/api/endpoint-groups', {}).then(function () {
+      setStatus('Группа добавлена', true);
+      return reloadGroups();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.grDeleteSelected = function () {
+    const sel = selectedGrIdxs();
+    if (!sel.length) return;
+    if (!confirm('Удалить выбранные группы (' + sel.length + ')?')) return;
+    setStatus('Удаление групп…');
+    const ordered = sel.slice().sort(function (a, b) { return b - a; });
+    let chain = Promise.resolve();
+    ordered.forEach(function (idx) {
+      chain = chain.then(function () {
+        return api('DELETE', '/api/endpoint-groups?idx=' + idx);
+      });
+    });
+    chain.then(function () {
+      setStatus('Группы удалены', true);
+      Object.keys(grSelected).forEach(function (k) { delete grSelected[k]; });
+      grActiveIdx = null;
+      ordered.forEach(function (idx) {
+        delete groupExpanded[idx];
+        delete groupMembers[idx];
+      });
+      return reloadGroups();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      reloadGroups();
+    });
+  };
+
+  window.grAddSelectedDevices = function () {
+    const target = resolveTargetGroup();
+    const eps = selectedEpIdxs();
+    if (target == null || !eps.length) return;
+    setStatus('Добавление в группу ' + target + '…');
+    api('POST', '/api/endpoint-groups?members=1&idx=' + target, {
+      endpoint_indices: eps
+    }).then(function () {
+      setStatus('Добавлено в группу ' + target + ': ' + eps.length, true);
+      groupExpanded[target] = true;
+      return reloadGroups();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  function reloadGroups() {
+    return api('GET', '/api/endpoint-groups').then(function (data) {
+      epGroups = data.items || [];
+      const openIdxs = Object.keys(groupExpanded).map(Number);
+      let chain = Promise.resolve();
+      openIdxs.forEach(function (idx) {
+        chain = chain.then(function () {
+          return loadGroupMembers(idx).catch(function () {
+            delete groupExpanded[idx];
+          });
+        });
+      });
+      return chain.then(function () {
+        renderGroupsTable();
+        fillGroupSelect();
+      });
+    });
+  }
+
+  function fillGroupSelect() {
+    const sel = document.getElementById('epGroupIdx');
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (!epGroups.length) {
+      const opt = document.createElement('option');
+      opt.value = '0';
+      opt.textContent = 'Группа 0';
+      sel.appendChild(opt);
+      return;
+    }
+    epGroups.forEach(function (g) {
+      const opt = document.createElement('option');
+      opt.value = String(g.index);
+      opt.textContent = 'Группа ' + g.index + ' (' + (g.count || 0) + ' устр.)';
+      sel.appendChild(opt);
+    });
+  }
+
+  // ── Device CRUD (tabs) ──
+  window.epSwitchTab = function (name) {
+    document.querySelectorAll('.ep-tab').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.tab === name);
+    });
+    document.querySelectorAll('.ep-pane').forEach(function (pane) {
+      pane.classList.remove('active');
+    });
+    const pane = document.getElementById('epPane' + name.charAt(0).toUpperCase() + name.slice(1));
+    if (pane) pane.classList.add('active');
+  };
+
+  window.epOpenEdit = function () {
+    const sel = selectedEpIdxs();
+    if (sel.length !== 1) return;
+    const idx = sel[0];
+    setStatus('Загрузка…');
+    api('GET', '/api/endpoints?idx=' + idx).then(function (data) {
+      const ep = data.endpoint || {};
+      document.getElementById('epEditIdx').value = String(idx);
+      document.getElementById('epEditLabel').value = ep.label || '';
+      const gss = ep.gss || {};
+      const dlms = ep.dlms || {};
+      const group = ep.group || {};
+      let serial = gss.serial_number || group.serial_number || dlms.logical_name || '';
+      serial = String(serial).trim();
+      document.getElementById('epEditSerial').value = serial;
+      document.getElementById('epEditMainPass').value = gss.main_password || dlms.read_password || '';
+      document.getElementById('epEditAdditPass').value = gss.additional_password || dlms.write_password || '';
+      document.getElementById('epEditPanel').hidden = false;
+      setStatus('Редактирование устройства #' + idx);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.epCloseEdit = function () {
+    document.getElementById('epEditPanel').hidden = true;
+    setStatus('');
+  };
+
+  window.epSaveEdit = function (ev) {
+    ev.preventDefault();
+    const idx = document.getElementById('epEditIdx').value;
+    const body = {
+      label: document.getElementById('epEditLabel').value.trim(),
+      gss: {
+        serial_number: document.getElementById('epEditSerial').value.trim(),
+        main_password: document.getElementById('epEditMainPass').value,
+        additional_password: document.getElementById('epEditAdditPass').value
+      }
+    };
+    setStatus('Сохранение…');
+    api('PUT', '/api/endpoints?idx=' + idx, body).then(function () {
+      setStatus('Сохранено', true);
+      epCloseEdit();
+      return reloadEpList();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  window.epDeleteSelected = function () {
+    const sel = selectedEpIdxs();
+    if (!sel.length) return;
+    if (!confirm('Удалить выбранные устройства (' + sel.length + ')?')) return;
+    setStatus('Удаление…');
+    const ordered = sel.slice().sort(function (a, b) { return b - a; });
+    let chain = Promise.resolve();
+    ordered.forEach(function (idx) {
+      chain = chain.then(function () {
+        return api('DELETE', '/api/endpoints?idx=' + idx + '&len=1');
+      });
+    });
+    chain.then(function () {
+      setStatus('Удалено', true);
+      epCloseEdit();
+      clearEpSelection();
+      return reloadEpList();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      reloadEpList();
+    });
+  };
+
+  function addOne(body) {
+    setStatus('Добавление…');
+    return api('POST', '/api/endpoints', body).then(function () {
+      setStatus('Устройство добавлено', true);
+      return reloadEpList();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  }
+
+  window.epAddSingle = function (epType) {
+    let serial = '';
+    if (epType === EP_TYPE.GSS) serial = document.getElementById('epGssSerial').value.trim();
+    if (epType === EP_TYPE.MBUS) serial = document.getElementById('epMbusSerial').value.trim();
+    if (!serial) {
+      setStatus('Укажите заводской номер', false);
+      return;
+    }
+    addOne({ ep_type: epType, serial: serial, label: serial });
+  };
+
+  window.epAddDlms = function () {
+    const serial = document.getElementById('epDlmsSerial').value.trim();
+    if (!serial) {
+      setStatus('Укажите заводской номер', false);
+      return;
+    }
+    const dlms = {
+      profile: document.getElementById('epDlmsProfile').value,
+      hdlc_addr: Number(document.getElementById('epDlmsAddr').value) || 100,
+      logical_name: serial,
+      set_read_pass: document.getElementById('epDlmsSetRead').checked,
+      set_write_pass: document.getElementById('epDlmsSetWrite').checked,
+      read_password: document.getElementById('epDlmsReadPass').value,
+      write_password: document.getElementById('epDlmsWritePass').value
+    };
+    addOne({ ep_type: EP_TYPE.DLMS, serial: serial, label: serial, dlms: dlms });
+  };
+
+  window.epAddGroupEp = function () {
+    const serial = document.getElementById('epGroupSerial').value.trim();
+    if (!serial) {
+      setStatus('Укажите заводской номер', false);
+      return;
+    }
+    const group = {
+      serial_number: serial,
+      group_idx: Number(document.getElementById('epGroupIdx').value) || 0,
+      srez_enabled: document.getElementById('epGroupSrez').checked,
+      max_srez_count: Number(document.getElementById('epGroupMax').value) || 0,
+      max_srez_listen: Number(document.getElementById('epGroupListen').value) || 0
+    };
+    addOne({ ep_type: EP_TYPE.GROUP, serial: serial, label: serial, group: group });
+  };
+
+  window.epPickFile = function (epType) {
+    fileEpType = epType;
+    document.getElementById('epFileInput').click();
+  };
+
+  function parseSerialLines(text) {
+    return text.split(/\r?\n/).map(function (line) {
+      return line.replace(/[^\d]/g, '').trim();
+    }).filter(function (s) { return s.length > 0; }).slice(0, MAX_FILE);
+  }
+
+  function addFromFile(epType, lines) {
+    if (!lines.length) {
+      setStatus('Файл пуст', false);
+      return;
+    }
+    let chain = Promise.resolve();
+    lines.forEach(function (serial) {
+      chain = chain.then(function () {
+        if (epType === EP_TYPE.DLMS) {
+          return api('POST', '/api/endpoints', {
+            ep_type: epType,
+            serial: serial,
+            label: serial,
+            dlms: {
+              profile: document.getElementById('epDlmsProfile').value,
+              hdlc_addr: Number(document.getElementById('epDlmsAddr').value) || 100,
+              logical_name: serial
+            }
+          });
+        }
+        return api('POST', '/api/endpoints', { ep_type: epType, serial: serial, label: serial });
+      });
+    });
+    setStatus('Добавление ' + lines.length + ' устройств…');
+    chain.then(function () {
+      setStatus('Добавлено: ' + lines.length, true);
+      return reloadEpList();
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      reloadEpList();
+    });
+  }
+
+  document.getElementById('epFileInput').addEventListener('change', function (ev) {
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      addFromFile(fileEpType, parseSerialLines(String(reader.result || '')));
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('epDlmsSetRead').addEventListener('change', function (ev) {
+    document.getElementById('epDlmsReadPass').disabled = !ev.target.checked;
+  });
+  document.getElementById('epDlmsSetWrite').addEventListener('change', function (ev) {
+    document.getElementById('epDlmsWritePass').disabled = !ev.target.checked;
+  });
+
+  setStatus('Загрузка…');
+  Promise.all([
+    api('GET', '/api/endpoints'),
+    api('GET', '/api/endpoint-groups')
+  ]).then(function (results) {
+    items = (results[0] && results[0].items) || [];
+    epGroups = (results[1] && results[1].items) || [];
+    renderEpTable();
+    fillGroupSelect();
+    renderGroupsTable();
+    setStatus('Устройств: ' + items.length + ', групп: ' + epGroups.length, true);
+  }).catch(function (err) {
+    setStatus(err.message, false);
+    renderEpTable();
+    renderGroupsTable();
+  });
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

@@ -1,0 +1,348 @@
+{{define "expert_modules_prot_converter"}}
+{{template "expert_page_start" .}}
+
+<div class="card pconv-page">
+  <div class="rf-conf-head">
+    <p class="page-lead"><a href="/expert/modules">← Обзор модулей</a></p>
+    <h3>Конвертер протоколов</h3>
+    <div class="rf-conf-toolbar">
+      {{if not .DeviceBacked}}
+      <button type="button" class="btn-secondary" id="pconvAddBtn" onclick="pconvAdd()">Добавить</button>
+      <button type="button" class="btn-secondary" id="pconvDelBtn" onclick="pconvDelete()" disabled>Удалить</button>
+      {{end}}
+      <span id="pconvStatus" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Модули</div>
+      <div class="hw-table-wrap">
+        <table class="hw-table pconv-table" id="pconvTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Исходящий интерфейс</th>
+              <th>Группа</th>
+            </tr>
+          </thead>
+          <tbody id="pconvTableBody">
+            <tr><td colspan="3" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rf-conf-section" id="pconvFormSection">
+      <div class="rf-conf-section-title">Настройка модуля</div>
+      <form id="pconvForm" class="sys-form" onsubmit="return pconvSave(event)">
+        <input type="hidden" id="pconvIdx" value="0" />
+        <div class="rf-cfgnode-fields pconv-fields">
+          <div class="rf-conf-field pconv-field-wide">
+            <label>Локальный сервер (вход)</label>
+            <input id="pconvLocalInput" type="text" readonly />
+          </div>
+          <div class="rf-conf-field pconv-field-wide">
+            <label>Исходящий интерфейс</label>
+            <select id="pconvLocalOutput"></select>
+          </div>
+          <div class="rf-conf-field pconv-field-wide">
+            <label>Группа устройств</label>
+            <select id="pconvEpGroup"></select>
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="pconvSaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="pconvItemsJson" type="application/json">{{.ProtConvertersJSON}}</script>
+<script id="pconvTransfersJson" type="application/json">{{.TransferIfacesJSON}}</script>
+<script id="pconvGroupsJson" type="application/json">{{.EpGroupsJSON}}</script>
+<script>
+(function () {
+  function parseJson(id) {
+    try {
+      const el = document.getElementById(id);
+      let parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  const defaults = {
+    local_server_input: '',
+    local_server_output: '',
+    ep_group_idx: 0
+  };
+
+  let items = parseJson('pconvItemsJson');
+  let transfers = parseJson('pconvTransfersJson');
+  let groups = parseJson('pconvGroupsJson');
+  let selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    const el = document.getElementById('pconvStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function transferLabel(serverOutput) {
+    for (let i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === serverOutput) return transfers[i].label;
+    }
+    return serverOutput || '—';
+  }
+
+  function groupLabel(idx) {
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) {
+        return 'Группа #' + idx + ' (' + groups[i].count + ' устр.)';
+      }
+    }
+    return 'Группа #' + idx;
+  }
+
+  function ensureTransferOption(serverOutput) {
+    if (!serverOutput) return;
+    for (let i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === serverOutput) return;
+    }
+    transfers.push({ kind: 'custom', label: 'Текущее: ' + serverOutput, server_output: serverOutput });
+  }
+
+  function ensureGroupOption(idx) {
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) return;
+    }
+    groups.push({ index: idx, count: 0 });
+  }
+
+  function fillTransferSelect(current) {
+    const sel = document.getElementById('pconvLocalOutput');
+    if (!sel) return;
+    ensureTransferOption(current);
+    sel.innerHTML = '';
+    transfers.forEach(function (t) {
+      const opt = document.createElement('option');
+      opt.value = t.server_output;
+      opt.textContent = t.label;
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+  }
+
+  function fillGroupSelect(current) {
+    const sel = document.getElementById('pconvEpGroup');
+    if (!sel) return;
+    ensureGroupOption(current);
+    groups.sort(function (a, b) { return a.index - b.index; });
+    sel.innerHTML = '';
+    groups.forEach(function (g) {
+      const opt = document.createElement('option');
+      opt.value = String(g.index);
+      opt.textContent = groupLabel(g.index);
+      sel.appendChild(opt);
+    });
+    sel.value = String(current);
+  }
+
+  function setFormEnabled(on) {
+    document.getElementById('pconvSaveBtn').disabled = !on;
+    const delBtn = document.getElementById('pconvDelBtn');
+    if (delBtn) delBtn.disabled = !on;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('pconvTableBody');
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="muted">Нет модулей</td></tr>';
+      setFormEnabled(false);
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, i) {
+      const sel = i === selected ? ' is-selected' : '';
+      return (
+        '<tr class="hw-row pconv-row' + sel + '" data-idx="' + i + '">' +
+        '<td>' + i + '</td>' +
+        '<td class="pconv-out">' + transferLabel(m.local_server_output) + '</td>' +
+        '<td>' + groupLabel(Number(m.ep_group_idx) || 0) + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    tbody.querySelectorAll('.pconv-row').forEach(function (row) {
+      row.onclick = function () {
+        pconvSelect(Number(row.dataset.idx));
+      };
+    });
+  }
+
+  function fillForm(idx) {
+    const m = items[idx];
+    if (!m) return;
+    document.getElementById('pconvIdx').value = String(idx);
+    document.getElementById('pconvLocalInput').value = m.local_server_input || '';
+    fillTransferSelect(m.local_server_output || '');
+    fillGroupSelect(Number(m.ep_group_idx) || 0);
+    setFormEnabled(true);
+  }
+
+  function readForm() {
+    return {
+      local_server_input: document.getElementById('pconvLocalInput').value || '',
+      local_server_output: document.getElementById('pconvLocalOutput').value,
+      ep_group_idx: Number(document.getElementById('pconvEpGroup').value) || 0
+    };
+  }
+
+  window.pconvSelect = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.querySelectorAll('.pconv-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    setStatus('Выбран модуль #' + idx);
+  };
+
+  window.pconvSave = function (ev) {
+    ev.preventDefault();
+    const idx = Number(document.getElementById('pconvIdx').value);
+    const body = readForm();
+    if (!body.local_server_output) {
+      setStatus('Выберите исходящий интерфейс', false);
+      return false;
+    }
+    setStatus('Сохранение…');
+    fetch('/api/modules/protocol-converter?idx=' + idx, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      items[idx] = body;
+      renderTable();
+      pconvSelect(idx);
+      setStatus('Сохранено', true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  window.pconvAdd = function () {
+    const body = Object.assign({}, defaults);
+    if (transfers.length) {
+      body.local_server_output = transfers[0].server_output;
+    }
+    if (groups.length) {
+      body.ep_group_idx = groups[0].index != null ? groups[0].index : 0;
+    }
+    if (!body.local_server_output) {
+      setStatus('Нет доступных исходящих интерфейсов', false);
+      return;
+    }
+    setStatus('Добавление…');
+    fetch('/api/modules/protocol-converter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      return reloadAll().then(function () {
+        if (items.length) pconvSelect(items.length - 1);
+        setStatus('Добавлено', true);
+      });
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.pconvDelete = function () {
+    if (selected < 0 || selected >= items.length) return;
+    if (!confirm('Удалить модуль #' + selected + '?')) return;
+    const idx = selected;
+    setStatus('Удаление…');
+    fetch('/api/modules/protocol-converter?idx=' + idx, { method: 'DELETE' })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error((data && data.error) || r.statusText);
+          return data;
+        });
+      })
+      .then(function () {
+        return reloadAll().then(function () {
+          setStatus('Удалено', true);
+        });
+      })
+      .catch(function (err) {
+        setStatus(err.message, false);
+      });
+  };
+
+  function reloadAll() {
+    setStatus('Загрузка…');
+    return Promise.all([
+      fetch('/api/modules/protocol-converter').then(function (r) { return r.json(); }),
+      fetch('/api/modules/protocol-converter?transfers=1').then(function (r) { return r.json(); }),
+      fetch('/api/endpoint-groups').then(function (r) { return r.json(); })
+    ]).then(function (results) {
+      items = (results[0] && results[0].items) || [];
+      transfers = (results[1] && results[1].items) || transfers || [];
+      groups = (results[2] && results[2].items) || groups || [];
+      items.forEach(function (m) {
+        ensureTransferOption(m.local_server_output);
+        ensureGroupOption(Number(m.ep_group_idx) || 0);
+      });
+      selected = items.length ? Math.min(Math.max(selected, 0), items.length - 1) : -1;
+      renderTable();
+      if (selected >= 0) pconvSelect(selected);
+      else {
+        setFormEnabled(false);
+        document.getElementById('pconvForm').reset();
+        document.getElementById('pconvLocalInput').value = '';
+      }
+      setStatus('Модулей: ' + items.length, true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      renderTable();
+    });
+  }
+
+  const urlIdx = new URLSearchParams(window.location.search).get('idx');
+  if (items.length) {
+    items.forEach(function (m) {
+      ensureTransferOption(m.local_server_output);
+      ensureGroupOption(Number(m.ep_group_idx) || 0);
+    });
+    renderTable();
+    const startIdx = urlIdx !== null ? Number(urlIdx) : 0;
+    if (Number.isFinite(startIdx) && startIdx >= 0 && startIdx < items.length) {
+      pconvSelect(startIdx);
+    } else {
+      pconvSelect(0);
+    }
+    setStatus('Модулей: ' + items.length);
+  } else {
+    reloadAll();
+  }
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

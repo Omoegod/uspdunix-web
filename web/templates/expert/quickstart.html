@@ -1,0 +1,184 @@
+{{define "expert_quickstart"}}
+{{template "expert_page_start" .}}
+
+<div class="qs-wizard card">
+  <div class="qs-steps" id="qsSteps">
+    <span class="qs-step-dot active" data-step="1">1</span><span class="qs-step-line"></span>
+    <span class="qs-step-dot" data-step="2">2</span><span class="qs-step-line"></span>
+    <span class="qs-step-dot" data-step="3">3</span><span class="qs-step-line"></span>
+    <span class="qs-step-dot" data-step="4">4</span><span class="qs-step-line qs-rf-only"></span>
+    <span class="qs-step-dot qs-rf-only" data-step="5">5</span><span class="qs-step-line qs-rf-only"></span>
+    <span class="qs-step-dot qs-rf-only" data-step="6">6</span>
+  </div>
+
+  <div id="qsPanel1" class="qs-panel active">
+    <h2>Шаг 1. Типы устройств</h2>
+    <p class="page-lead">Какие типы устройств будут добавлены?</p>
+    <label class="qs-check"><input type="checkbox" name="devType" value="electric" checked /> Электросчётчики</label>
+    <label class="qs-check"><input type="checkbox" name="devType" value="water" /> Счётчики воды</label>
+  </div>
+
+  <div id="qsPanel2" class="qs-panel">
+    <h2>Шаг 2. Интерфейсы</h2>
+    <p class="page-lead">По какому интерфейсу подключены устройства?</p>
+    <label class="qs-check"><input type="checkbox" name="iface" value="tcp" /> TCP</label>
+    <label class="qs-check"><input type="checkbox" name="iface" value="rfs" /> RFs</label>
+    <label class="qs-check"><input type="checkbox" name="iface" value="rs232" /> RS232</label>
+    <label class="qs-check"><input type="checkbox" name="iface" value="rs485_1" /> RS485-1</label>
+    <label class="qs-check"><input type="checkbox" name="iface" value="rs485_2" /> RS485-2</label>
+  </div>
+
+  <div id="qsPanel3" class="qs-panel">
+    <h2>Шаг 3. Группы УСПД</h2>
+    <p class="page-lead">Автоматически распределить устройства по группам?</p>
+    <label class="qs-radio"><input type="radio" name="autoGroups" value="yes" checked /> Да</label>
+    <label class="qs-radio"><input type="radio" name="autoGroups" value="no" /> Нет, вручную</label>
+  </div>
+
+  <div id="qsPanel4" class="qs-panel">
+    <h2>Шаг 4. Списки устройств</h2>
+    <p class="page-lead">Для каждой пары «тип × интерфейс» со шагов 1–2 создаётся строка загрузки (можно добавить ещё). В файле — один заводской номер на строку (макс. 399).</p>
+    <p class="muted" style="font-size:12px">Входящие TCP (напр. 20001 → ССДУ-02 #0) заданы в прошивке и синхронизируются сами — настраивать их в мастере не нужно.</p>
+    <div id="qsUploadArea"><p class="muted">Загрузка форм…</p></div>
+    <button type="button" id="qsAddUploadRow" class="btn-primary" style="display:none" onclick="qsAddUploadRow()">Добавить файл</button>
+    <div id="qsEpApplyResult" style="display:none;margin-top:12px"></div>
+  </div>
+
+  <div id="qsPanel5" class="qs-panel qs-rf-panel">
+    <h2>Шаг 5. RFs — подсеть и RouterRF</h2>
+    <p class="page-lead">У подключаемых устройств подсеть 0?</p>
+    <label class="qs-radio"><input type="radio" name="subnetZero" value="yes" checked onchange="qsToggleSubnet()" /> Да</label>
+    <label class="qs-radio"><input type="radio" name="subnetZero" value="no" onchange="qsToggleSubnet()" /> Нет</label>
+    <div id="qsSubnetBox" style="display:none;margin-top:12px">
+      <label>Номер подсети (NetNum)</label>
+      <input id="qsNetNum" type="number" min="0" max="49" value="1" />
+    </div>
+    <div style="margin-top:16px" id="qsRfConnBox">
+      <h3 style="font-size:15px;margin:0 0 8px">Подключение к RouterRF</h3>
+      <p class="muted" style="font-size:12px">IP берётся из адреса УСПД (на устройстве — localhost). При чтении/записи соединение устанавливается автоматически.</p>
+      <div id="qsRfConnManual" class="qs-rf-group-row" style="margin-top:8px;display:none">
+        <label>IP</label>
+        <input id="qsRfHost" type="text" placeholder="127.0.0.1" style="width:160px;max-width:160px;margin:0" />
+        <label>Порт</label>
+        <input id="qsRfPort" type="number" min="1" max="65535" value="10001" style="width:90px;max-width:90px;margin:0" />
+        <button type="button" class="btn-primary" onclick="qsConnectRF()">Подключить</button>
+      </div>
+    </div>
+    <div id="qsRfConnStatus" style="margin-top:8px"></div>
+  </div>
+
+  <div id="qsPanel6" class="qs-panel qs-rf-panel">
+    <h2>Шаг 6. RFs — группы и запись</h2>
+    <p class="page-lead">Распределите устройства по RF-группам (до 32). На стыках соседних групп нужны пересечения, чтобы радиосигнал проходил между участками.</p>
+
+    <nav class="qs-s7-progress" aria-label="Этапы шага 6">
+      <button type="button" class="qs-s7-tab active" data-s7="1" onclick="qsS7Go(1)">1. Шаблон</button>
+      <button type="button" class="qs-s7-tab" data-s7="2" onclick="qsS7Go(2)">2. Основной RF</button>
+      <button type="button" class="qs-s7-tab" data-s7="3" onclick="qsS7Go(3)">3. Назначение</button>
+      <button type="button" class="qs-s7-tab" data-s7="4" onclick="qsS7Go(4)">4. Проверка</button>
+    </nav>
+
+    <div id="qsS7Pane1" class="qs-s7-pane active">
+      <p class="qs-s7-lead">Выберите готовый вариант или перейдите к ручной настройке на следующем этапе.</p>
+      <div class="qs-s7-presets">
+        <div class="qs-s7-preset-card qs-s7-preset-form">
+          <strong>Группы по диапазонам</strong>
+          <span>Делит устройства на равные сегменты: первый — только группа 1, средние — стыки соседних групп, последний — связка с предыдущей (группа N через N−1).</span>
+          <div class="qs-s7-preset-row">
+            <label for="qsPresetGroupCount">Число групп</label>
+            <input id="qsPresetGroupCount" type="number" min="2" max="32" value="3" />
+            <button type="button" class="btn-primary" onclick="qsPresetRangeGroups()">Применить</button>
+          </div>
+        </div>
+        <button type="button" class="qs-s7-preset-card" onclick="qsPresetAllGroup1()">
+          <strong>Все в группу 1</strong>
+          <span>Все устройства в одной группе — для небольших объектов.</span>
+        </button>
+        <button type="button" class="qs-s7-preset-card" onclick="qsPresetResetGroups()">
+          <strong>Сбросить группы</strong>
+          <span>Вернуть значение по умолчанию (все 32 группы включены).</span>
+        </button>
+        <button type="button" class="qs-s7-preset-card qs-s7-preset-muted" onclick="qsS7Go(2)">
+          <strong>Настроить вручную</strong>
+          <span>Без шаблона — выделить устройства и назначить группы сами.</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="qsS7Pane2" class="qs-s7-pane">
+      <p class="qs-s7-lead">Отметьте группы самого RouterRF (обычно группа 1). Остальные участки связываются цепочкой стыков (1+2 → 2+3 → …) и доходят до главного RF. Выбор запишется вместе с узлами.</p>
+      <div class="qs-s7-rfmask-simple">
+        <div class="qs-s7-rfmask-actions">
+          <button type="button" class="btn-secondary" onclick="qsRfSuggestRouterMask()">По узлам (с гр. 1)</button>
+          <button type="button" class="btn-secondary" onclick="qsRfSetRouterMaskGroups([1])">Только группа 1</button>
+          <button type="button" class="btn-secondary" onclick="qsRfReadRouterMask()">Прочитать с RF</button>
+        </div>
+        <p id="qsRfRouterGroupsState" class="qs-s7-rfmask-selected muted"></p>
+        <div id="qsRfRouterGroupBits" class="qs-rf-group-bits qs-rf-router-bits"></div>
+        <div id="qsRfRouterMaskStatus" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <div id="qsS7Pane3" class="qs-s7-pane">
+      <div class="qs-rf-step7-layout">
+        <div class="qs-rf-step7-main">
+          <div id="qsRfNodesEditTable" class="qs-rf-table-wrap"></div>
+        </div>
+        <aside id="qsRfGroupToolbar" class="qs-rf-side-panel">
+          <div id="qsS7SideHint" class="qs-s7-side-hint status info"></div>
+          <section class="qs-rf-side-section">
+            <h3>Выделение</h3>
+            <div class="qs-rf-side-field">
+              <label>Диапазон узлов</label>
+              <div class="qs-rf-range-inputs">
+                <input id="qsRfSelFrom" type="number" min="1" value="1" />
+                <span>—</span>
+                <input id="qsRfSelTo" type="number" min="1" value="1" />
+              </div>
+            </div>
+            <button type="button" class="btn-secondary qs-rf-side-btn" onclick="qsRfSelectRange()">Выделить диапазон</button>
+            <button type="button" class="btn-secondary qs-rf-side-btn" onclick="qsRfSelectAll()">Выделить все</button>
+            <button type="button" class="btn-secondary qs-rf-side-btn" onclick="qsRfClearSelection()">Снять</button>
+            <p id="qsRfSelCount" class="qs-rf-side-hint muted"></p>
+          </section>
+          <section class="qs-rf-side-section">
+            <h3>RF-группы (1–32)</h3>
+            <p class="muted" style="font-size:12px;margin:0 0 8px">Нажмите номера групп, затем «Назначить». Для стыка выберите две соседние группы и «Добавить (стык)».</p>
+            <div id="qsRfGroupBits" class="qs-rf-group-bits"></div>
+            <p id="qsRfGroupsState" class="qs-rf-side-hint muted"></p>
+          </section>
+          <section class="qs-rf-side-section qs-rf-side-actions">
+            <button type="button" class="btn-primary qs-rf-side-btn" onclick="qsRfAssignGroups('set')">Назначить выбранным</button>
+            <button type="button" class="btn-secondary qs-rf-side-btn" onclick="qsRfAssignGroups('add')">Добавить (стык)</button>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <div id="qsS7Pane4" class="qs-s7-pane">
+      <div id="qsS7Review" class="qs-s7-review"></div>
+      <div id="qsRfApplyResult" style="display:none;margin-top:12px"></div>
+      <div id="qsFinishBox" style="display:none;margin-top:16px">
+        <h3>Готово</h3>
+        <div id="qsPlanPreview"></div>
+      </div>
+    </div>
+
+    <div class="qs-s7-local-nav">
+      <button type="button" id="qsS7Prev" class="btn-secondary" onclick="qsS7Prev()">← Назад</button>
+      <button type="button" id="qsS7Next" class="btn-primary" onclick="qsS7Next()">Далее →</button>
+    </div>
+  </div>
+
+  <div class="qs-nav">
+    <button type="button" id="qsPrev" onclick="qsPrev()" disabled>Назад</button>
+    <button type="button" id="qsNext" class="btn-primary" onclick="qsNext()">Далее</button>
+    <button type="button" id="qsEpApply" class="btn-primary" style="display:none" onclick="qsApplyEndpoints()">Создать устройства</button>
+    <button type="button" id="qsRfApply" class="btn-primary" style="display:none" onclick="qsApplyRF()">Записать узлы RFs</button>
+    <button type="button" id="qsFinish" class="btn-primary" style="display:none" onclick="location.href='/expert/endpoints'">К устройствам</button>
+  </div>
+</div>
+
+<script src="/static/quickstart.js?v=40"></script>
+{{template "expert_page_end" .}}
+{{end}}

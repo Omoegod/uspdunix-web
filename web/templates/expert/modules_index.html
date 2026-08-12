@@ -1,0 +1,20 @@
+{{define "expert_modules_index"}}
+{{template "expert_page_start" .}}
+
+<div class="card">
+  <p class="page-lead">Виртуальные runtime-модули (DasConfIteratorVirtualMod)</p>
+  <div class="dashboard-grid">
+    <a class="dashboard-tile" href="/expert/modules/protocol-converter"><h3>Конвертер протоколов</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/uspd-gss-ep"><h3>УСПД в протоколе GSS</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/uspd-gss-reader"><h3>Сборщики даннах</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/ssdu02"><h3>УСПД в протоколе ССДУ-02</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/ssdu03"><h3>УСПД в протоколе ССДУ-03</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/rmxx"><h3>RMXX</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/dlms-profiles"><h3>DLMS Profiles</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/mbus-modbus"><h3>MBus → Modbus</h3></a>
+    <a class="dashboard-tile" href="/expert/modules/becloud"><h3>BeCloud</h3></a>
+  </div>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

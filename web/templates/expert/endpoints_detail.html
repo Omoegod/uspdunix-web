@@ -1,0 +1,57 @@
+{{define "expert_endpoints_detail"}}
+{{template "expert_page_start" .}}
+
+<p class="page-lead"><a href="/expert/endpoints">← Устройства</a></p>
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+<div class="card">
+    <p>Type: {{.Endpoint.Type}} — payload editor (COM_GET/SET_DATA_GSS)</p>
+    <form method="post">
+      <label>Label</label>
+      <input name="label" value="{{.Endpoint.Label}}" />
+
+      {{if eq .Endpoint.Type 1}}
+      <input type="hidden" name="ep_kind" value="gss" />
+      <h2>GSS configuration</h2>
+      <label>Serial number</label>
+      <input name="serial_number" value="{{.Endpoint.Gss.SerialNumber}}" />
+      <label>Network address</label>
+      <input name="net_address" value="{{.Endpoint.Gss.NetAddress}}" />
+      <label>Main password</label>
+      <input name="main_password" value="{{.Endpoint.Gss.MainPassword}}" />
+      <label>Additional password</label>
+      <input name="additional_password" value="{{.Endpoint.Gss.AdditionalPassword}}" />
+      <label>Ki</label><input name="ki" value="{{.Endpoint.Gss.Ki}}" />
+      <label>Ku</label><input name="ku" value="{{.Endpoint.Gss.Ku}}" />
+      {{end}}
+
+      {{if eq .Endpoint.Type 2}}
+      <input type="hidden" name="ep_kind" value="mbus" />
+      <h2>MBus configuration</h2>
+      <label>Primary address</label>
+      <input name="primary_address" value="{{.Endpoint.MBus.PrimaryAddress}}" />
+      <label>Secondary address</label>
+      <input name="secondary_address" value="{{.Endpoint.MBus.SecondaryAddress}}" />
+      <label>Description</label>
+      <input name="description" value="{{.Endpoint.MBus.Description}}" />
+      {{end}}
+
+      {{if eq .Endpoint.Type 3}}
+      <input type="hidden" name="ep_kind" value="dlms" />
+      <h2>DLMS configuration</h2>
+      <label>Logical name</label>
+      <input name="logical_name" value="{{.Endpoint.Dlms.LogicalName}}" />
+      <label>Client address</label>
+      <input name="client_addr" value="{{.Endpoint.Dlms.ClientAddr}}" />
+      <label>Server address</label>
+      <input name="server_addr" value="{{.Endpoint.Dlms.ServerAddr}}" />
+      <label>Profile</label>
+      <input name="profile" value="{{.Endpoint.Dlms.Profile}}" />
+      {{end}}
+
+      <button type="submit">Save configuration</button>
+    </form>
+    <p class="muted">Raw GSS params via API: <code>GET /api/endpoints?data=gss&amp;idx={{.EndpointIndex}}&amp;func=3&amp;prm=18</code></p>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

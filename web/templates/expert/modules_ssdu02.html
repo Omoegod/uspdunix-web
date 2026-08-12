@@ -1,0 +1,442 @@
+{{define "expert_modules_ssdu02"}}
+{{template "expert_page_start" .}}
+
+<div class="card ssdu02-page">
+  <div class="rf-conf-head">
+    <p class="page-lead"><a href="/expert/modules">← Обзор модулей</a></p>
+    <h3>УСПД в протоколе ССДУ-02</h3>
+    <div class="rf-conf-toolbar">
+      {{if not .DeviceBacked}}
+      <button type="button" class="btn-secondary" id="ssdu02AddBtn" onclick="ssdu02Add()">Добавить</button>
+      <button type="button" class="btn-secondary" id="ssdu02DelBtn" onclick="ssdu02Delete()" disabled>Удалить</button>
+      {{end}}
+      <span id="ssdu02Status" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Модули</div>
+      <div class="hw-table-wrap">
+        <table class="hw-table ssdu02-table" id="ssdu02Table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Подключение</th>
+              <th>Группа</th>
+              <th>Транзит</th>
+              <th>Заводской номер</th>
+            </tr>
+          </thead>
+          <tbody id="ssdu02TableBody">
+            <tr><td colspan="5" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rf-conf-section" id="ssdu02FormSection">
+      <div class="rf-conf-section-title">Настройка модуля</div>
+      <form id="ssdu02Form" class="sys-form" onsubmit="return ssdu02Save(event)">
+        <input type="hidden" id="ssdu02Idx" value="0" />
+        <div class="rf-cfgnode-fields ssdu02-fields">
+          <div class="rf-conf-field ssdu02-field-wide">
+            <label>Группа</label>
+            <select id="ssdu02EpGroup"></select>
+          </div>
+          <div class="rf-conf-field ssdu02-field-wide">
+            <label>Подключение</label>
+            <select id="ssdu02LocalOutput"></select>
+          </div>
+          <div class="rf-conf-field ssdu02-field-wide">
+            <label class="ssdu02-check">
+              <input id="ssdu02Transit" type="checkbox" />
+              Использовать подключения сборщиков данных для транзита
+            </label>
+          </div>
+          <div class="rf-conf-field ssdu02-field-wide">
+            <label>Заводской номер</label>
+            <input id="ssdu02SerialNum" type="text" />
+          </div>
+          <div class="rf-conf-field ssdu02-field-wide">
+            <label>Тип устройства</label>
+            <input id="ssdu02TypeDevice" type="text" />
+          </div>
+          <div class="rf-conf-field ssdu02-field-wide">
+            <label>Дата производства</label>
+            <input id="ssdu02ProduceDate" type="text" placeholder="ДД.ММ.ГГГГ" />
+          </div>
+          <div class="rf-conf-field ssdu02-field-wide">
+            <label>Количество тарифов</label>
+            <input id="ssdu02NumTarif" type="number" min="0" max="255" />
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="ssdu02SaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="ssdu02ItemsJson" type="application/json">{{.Ssdu02ListJSON}}</script>
+<script id="ssdu02TransfersJson" type="application/json">{{.TransferIfacesJSON}}</script>
+<script id="ssdu02GroupsJson" type="application/json">{{.EpGroupsJSON}}</script>
+<script>
+(function () {
+  var TRANSIT_PREFIX = '<*>';
+
+  function parseJson(id) {
+    try {
+      var el = document.getElementById(id);
+      var parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function usesTransit(out) {
+    return typeof out === 'string' && out.indexOf(TRANSIT_PREFIX) === 0;
+  }
+
+  function baseOutput(out) {
+    return usesTransit(out) ? out.slice(TRANSIT_PREFIX.length) : (out || '');
+  }
+
+  function buildOutput(transit, base) {
+    return transit ? (TRANSIT_PREFIX + base) : base;
+  }
+
+  function emptyModule() {
+    return {
+      local_server_input: '',
+      local_server_output: '',
+      ep_group_idx: 0,
+      config_ssdu: {
+        num_tarif: 4,
+        num_month: 12,
+        sync_time_type: 0,
+        ref_node: 0,
+        num_days: 31,
+        auto_search: 1,
+        ntp_min_asinc: 1,
+        ntp_max_asinc: 3600
+      },
+      main_node: {
+        node_type: 1,
+        node_status: 0,
+        n_port: 1,
+        tariff_idx: 0,
+        net_adr: 1,
+        group_mask: 65535,
+        user_id: '',
+        type_device: 'SSDU-02',
+        serial_num: '',
+        produce_date: '',
+        check_date: '',
+        soft_ver: 772,
+        password: '',
+        full_serial: ''
+      },
+      admin_pass: { value: '' },
+      comerc_pass: { value: '' }
+    };
+  }
+
+  var items = parseJson('ssdu02ItemsJson');
+  var transfers = parseJson('ssdu02TransfersJson');
+  var groups = parseJson('ssdu02GroupsJson');
+  var selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    var el = document.getElementById('ssdu02Status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function transferLabel(serverOutput) {
+    var base = baseOutput(serverOutput);
+    for (var i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === base) return transfers[i].label;
+    }
+    return base || '—';
+  }
+
+  function groupLabel(idx) {
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) {
+        return 'Группа #' + idx + ' (' + groups[i].count + ' устр.)';
+      }
+    }
+    return 'Группа #' + idx;
+  }
+
+  function ensureTransferOption(serverOutput) {
+    var base = baseOutput(serverOutput);
+    if (!base) return;
+    for (var i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === base) return;
+    }
+    transfers.push({ kind: 'custom', label: 'Текущее: ' + base, server_output: base });
+  }
+
+  function ensureGroupOption(idx) {
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) return;
+    }
+    groups.push({ index: idx, count: 0 });
+  }
+
+  function fillTransferSelect(current) {
+    var sel = document.getElementById('ssdu02LocalOutput');
+    if (!sel) return;
+    ensureTransferOption(current);
+    sel.innerHTML = '';
+    transfers.forEach(function (t) {
+      var opt = document.createElement('option');
+      opt.value = t.server_output;
+      opt.textContent = t.label;
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = baseOutput(current);
+  }
+
+  function fillGroupSelect(current) {
+    var sel = document.getElementById('ssdu02EpGroup');
+    if (!sel) return;
+    ensureGroupOption(current);
+    groups.sort(function (a, b) { return a.index - b.index; });
+    sel.innerHTML = '';
+    groups.forEach(function (g) {
+      var opt = document.createElement('option');
+      opt.value = String(g.index);
+      opt.textContent = groupLabel(g.index);
+      sel.appendChild(opt);
+    });
+    sel.value = String(current);
+  }
+
+  function setFormEnabled(on) {
+    document.getElementById('ssdu02SaveBtn').disabled = !on;
+    var delBtn = document.getElementById('ssdu02DelBtn');
+    if (delBtn) delBtn.disabled = !on;
+  }
+
+  function str(id) {
+    return document.getElementById(id).value || '';
+  }
+
+  function num(id) {
+    return Number(document.getElementById(id).value) || 0;
+  }
+
+  function setVal(id, v) {
+    document.getElementById(id).value = v == null ? '' : String(v);
+  }
+
+  function renderTable() {
+    var tbody = document.getElementById('ssdu02TableBody');
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Нет модулей</td></tr>';
+      setFormEnabled(false);
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, i) {
+      var sel = i === selected ? ' is-selected' : '';
+      var serial = (m.main_node && m.main_node.serial_num) || '—';
+      return (
+        '<tr class="hw-row ssdu02-row' + sel + '" data-idx="' + i + '">' +
+        '<td>' + i + '</td>' +
+        '<td class="ssdu02-out">' + transferLabel(m.local_server_output) + '</td>' +
+        '<td>' + groupLabel(Number(m.ep_group_idx) || 0) + '</td>' +
+        '<td>' + (usesTransit(m.local_server_output) ? 'да' : 'нет') + '</td>' +
+        '<td>' + serial + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    tbody.querySelectorAll('.ssdu02-row').forEach(function (row) {
+      row.onclick = function () {
+        ssdu02Select(Number(row.dataset.idx));
+      };
+    });
+  }
+
+  function fillForm(idx) {
+    var m = items[idx];
+    if (!m) return;
+    var node = m.main_node || {};
+    var cfg = m.config_ssdu || {};
+    document.getElementById('ssdu02Idx').value = String(idx);
+    fillGroupSelect(Number(m.ep_group_idx) || 0);
+    fillTransferSelect(m.local_server_output || '');
+    document.getElementById('ssdu02Transit').checked = usesTransit(m.local_server_output);
+    setVal('ssdu02SerialNum', node.serial_num);
+    setVal('ssdu02TypeDevice', node.type_device);
+    setVal('ssdu02ProduceDate', node.produce_date);
+    setVal('ssdu02NumTarif', cfg.num_tarif);
+    setFormEnabled(true);
+  }
+
+  function readForm() {
+    var prev = items[Number(document.getElementById('ssdu02Idx').value)] || emptyModule();
+    var body = JSON.parse(JSON.stringify(prev));
+    var base = document.getElementById('ssdu02LocalOutput').value;
+    var transit = document.getElementById('ssdu02Transit').checked;
+    body.local_server_output = buildOutput(transit, base);
+    body.ep_group_idx = Number(document.getElementById('ssdu02EpGroup').value) || 0;
+    if (!body.main_node) body.main_node = {};
+    if (!body.config_ssdu) body.config_ssdu = {};
+    body.main_node.serial_num = str('ssdu02SerialNum');
+    body.main_node.type_device = str('ssdu02TypeDevice');
+    body.main_node.produce_date = str('ssdu02ProduceDate');
+    body.config_ssdu.num_tarif = num('ssdu02NumTarif');
+    return body;
+  }
+
+  window.ssdu02Select = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.querySelectorAll('.ssdu02-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    setStatus('Выбран модуль #' + idx);
+  };
+
+  window.ssdu02Save = function (ev) {
+    ev.preventDefault();
+    var idx = Number(document.getElementById('ssdu02Idx').value);
+    var body = readForm();
+    if (!baseOutput(body.local_server_output)) {
+      setStatus('Выберите подключение', false);
+      return false;
+    }
+    setStatus('Сохранение…');
+    fetch('/api/modules/ssdu02?idx=' + idx, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      items[idx] = body;
+      renderTable();
+      ssdu02Select(idx);
+      setStatus('Сохранено', true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  window.ssdu02Add = function () {
+    var body = emptyModule();
+    if (transfers.length) {
+      body.local_server_output = transfers[0].server_output;
+    }
+    if (groups.length) {
+      body.ep_group_idx = groups[0].index != null ? groups[0].index : 0;
+    }
+    if (!body.local_server_output) {
+      setStatus('Нет доступных подключений', false);
+      return;
+    }
+    setStatus('Добавление…');
+    fetch('/api/modules/ssdu02', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      return reloadAll().then(function () {
+        if (items.length) ssdu02Select(items.length - 1);
+        setStatus('Добавлено', true);
+      });
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.ssdu02Delete = function () {
+    if (selected < 0 || selected >= items.length) return;
+    if (!confirm('Удалить модуль #' + selected + '?')) return;
+    var idx = selected;
+    setStatus('Удаление…');
+    fetch('/api/modules/ssdu02?idx=' + idx, { method: 'DELETE' })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error((data && data.error) || r.statusText);
+          return data;
+        });
+      })
+      .then(function () {
+        return reloadAll().then(function () {
+          setStatus('Удалено', true);
+        });
+      })
+      .catch(function (err) {
+        setStatus(err.message, false);
+      });
+  };
+
+  function reloadAll() {
+    setStatus('Загрузка…');
+    return Promise.all([
+      fetch('/api/modules/ssdu02').then(function (r) { return r.json(); }),
+      fetch('/api/modules/ssdu02?transfers=1').then(function (r) { return r.json(); }),
+      fetch('/api/endpoint-groups').then(function (r) { return r.json(); })
+    ]).then(function (results) {
+      items = (results[0] && results[0].items) || [];
+      transfers = (results[1] && results[1].items) || transfers || [];
+      groups = (results[2] && results[2].items) || groups || [];
+      items.forEach(function (m) {
+        ensureTransferOption(m.local_server_output);
+        ensureGroupOption(Number(m.ep_group_idx) || 0);
+      });
+      selected = items.length ? Math.min(Math.max(selected, 0), items.length - 1) : -1;
+      renderTable();
+      if (selected >= 0) ssdu02Select(selected);
+      else {
+        setFormEnabled(false);
+        document.getElementById('ssdu02Form').reset();
+      }
+      setStatus('Модулей: ' + items.length, true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      renderTable();
+    });
+  }
+
+  var urlIdx = new URLSearchParams(window.location.search).get('idx');
+  if (items.length) {
+    items.forEach(function (m) {
+      ensureTransferOption(m.local_server_output);
+      ensureGroupOption(Number(m.ep_group_idx) || 0);
+    });
+    renderTable();
+    var startIdx = urlIdx !== null ? Number(urlIdx) : 0;
+    if (Number.isFinite(startIdx) && startIdx >= 0 && startIdx < items.length) {
+      ssdu02Select(startIdx);
+    } else {
+      ssdu02Select(0);
+    }
+    setStatus('Модулей: ' + items.length);
+  } else {
+    reloadAll();
+  }
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

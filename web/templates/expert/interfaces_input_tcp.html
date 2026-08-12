@@ -1,0 +1,219 @@
+{{define "expert_interfaces_input_tcp"}}
+{{template "expert_page_start" .}}
+
+<div class="card itcp-page">
+  <div class="rf-conf-head">
+    <h3>Входной TCP-сервер</h3>
+    <div class="rf-conf-toolbar">
+      <span id="itcpStatus" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Интерфейсы</div>
+      <div class="hw-table-wrap">
+        <table class="hw-table itcp-table" id="itcpTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Подключение</th>
+              <th>Порт</th>
+            </tr>
+          </thead>
+          <tbody id="itcpTableBody">
+            <tr><td colspan="3" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rf-conf-section" id="itcpFormSection">
+      <div class="rf-conf-section-title">Настройка интерфейса</div>
+      <form id="itcpForm" class="sys-form" onsubmit="return itcpSave(event)">
+        <input type="hidden" id="itcpIdx" value="0" />
+        <div class="rf-cfgnode-fields itcp-fields">
+          <div class="rf-conf-field itcp-field-wide">
+            <label>Доступное подключение</label>
+            <select id="itcpServerName"></select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Порт TCP</label>
+            <input id="itcpPort" type="number" min="1" max="65535" />
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="itcpSaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="itcpItemsJson" type="application/json">{{.InputTcpJSON}}</script>
+<script id="itcpConnsJson" type="application/json">{{.InputTcpConnectionsJSON}}</script>
+<script>
+(function () {
+  function parseJson(id) {
+    try {
+      const el = document.getElementById(id);
+      let parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  let items = parseJson('itcpItemsJson');
+  let conns = parseJson('itcpConnsJson');
+  let selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    const el = document.getElementById('itcpStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function labelFor(serverName) {
+    for (let i = 0; i < conns.length; i++) {
+      if (conns[i].server_name === serverName) return conns[i].label;
+    }
+    return serverName || '—';
+  }
+
+  function ensureCurrentOption(serverName) {
+    if (!serverName) return;
+    for (let i = 0; i < conns.length; i++) {
+      if (conns[i].server_name === serverName) return;
+    }
+    conns.push({ kind: 'custom', label: 'Текущее: ' + serverName, server_name: serverName });
+  }
+
+  function fillConnSelect(current) {
+    const sel = document.getElementById('itcpServerName');
+    if (!sel) return;
+    ensureCurrentOption(current);
+    sel.innerHTML = '';
+    conns.forEach(function (c) {
+      const opt = document.createElement('option');
+      opt.value = c.server_name;
+      opt.textContent = c.label;
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('itcpTableBody');
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="muted">Нет интерфейсов</td></tr>';
+      document.getElementById('itcpSaveBtn').disabled = true;
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, i) {
+      const sel = i === selected ? ' is-selected' : '';
+      return (
+        '<tr class="hw-row itcp-row' + sel + '" data-idx="' + i + '">' +
+        '<td>' + i + '</td>' +
+        '<td class="itcp-conn">' + labelFor(m.server_name) + '</td>' +
+        '<td class="itcp-port">' + (m.port_tcp || '') + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    tbody.querySelectorAll('.itcp-row').forEach(function (row) {
+      row.onclick = function () {
+        itcpSelect(Number(row.dataset.idx));
+      };
+    });
+  }
+
+  function fillForm(idx) {
+    const m = items[idx];
+    if (!m) return;
+    document.getElementById('itcpIdx').value = String(idx);
+    fillConnSelect(m.server_name || '');
+    document.getElementById('itcpPort').value = m.port_tcp || 10001;
+    document.getElementById('itcpSaveBtn').disabled = false;
+  }
+
+  window.itcpSelect = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.querySelectorAll('.itcp-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    setStatus('Выбран интерфейс #' + idx);
+  };
+
+  window.itcpSave = function (ev) {
+    ev.preventDefault();
+    const idx = Number(document.getElementById('itcpIdx').value);
+    const body = {
+      server_name: document.getElementById('itcpServerName').value,
+      port_tcp: Number(document.getElementById('itcpPort').value) || 0
+    };
+    if (!body.server_name) {
+      setStatus('Выберите подключение', false);
+      return false;
+    }
+    if (body.port_tcp < 1 || body.port_tcp > 65535) {
+      setStatus('Некорректный порт', false);
+      return false;
+    }
+    setStatus('Сохранение…');
+    fetch('/api/interfaces/input-tcp?idx=' + idx, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      items[idx] = body;
+      renderTable();
+      itcpSelect(idx);
+      setStatus('Сохранено', true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  function reloadAll() {
+    setStatus('Загрузка…');
+    return Promise.all([
+      fetch('/api/interfaces/input-tcp').then(function (r) { return r.json(); }),
+      fetch('/api/interfaces/input-tcp?connections=1').then(function (r) { return r.json(); })
+    ]).then(function (results) {
+      items = (results[0] && results[0].items) || [];
+      conns = (results[1] && results[1].items) || conns || [];
+      items.forEach(function (m) { ensureCurrentOption(m.server_name); });
+      selected = items.length ? Math.min(Math.max(selected, 0), items.length - 1) : -1;
+      renderTable();
+      if (selected >= 0) itcpSelect(selected);
+      setStatus('Интерфейсов: ' + items.length, true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      renderTable();
+    });
+  }
+
+  if (items.length) {
+    items.forEach(function (m) { ensureCurrentOption(m.server_name); });
+    renderTable();
+    itcpSelect(0);
+    setStatus('Интерфейсов: ' + items.length);
+  } else {
+    reloadAll();
+  }
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

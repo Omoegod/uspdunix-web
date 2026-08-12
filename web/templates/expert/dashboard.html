@@ -1,0 +1,34 @@
+{{define "expert_dashboard"}}
+{{template "expert_page_start" .}}
+
+<p class="page-lead">Конфигуратор УСПД — выберите раздел в меню слева или перейдите по плиткам ниже.</p>
+
+<div class="dashboard-grid">
+  <a class="dashboard-tile" href="/expert/quickstart">
+    <h3>Быстрый старт</h3>
+    <p>Мастер добавления устройств и групп</p>
+  </a>
+  <a class="dashboard-tile" href="/expert/system">
+    <h3>Система</h3>
+    <p>Устройство, время, идентификация</p>
+  </a>
+  <a class="dashboard-tile" href="/expert/endpoints">
+    <h3>Устройства и группы</h3>
+    <p>Конечные точки и группы УСПД</p>
+  </a>
+  <a class="dashboard-tile" href="/expert/interfaces/input-tcp">
+    <h3>Интерфейсы</h3>
+    <p>TCP, serial, входной сервер</p>
+  </a>
+  <a class="dashboard-tile" href="/expert/modules">
+    <h3>Модули</h3>
+    <p>Runtime-модули УСПД</p>
+  </a>
+  <a class="dashboard-tile" href="/expert/rf-config">
+    <h3>Радиомаршрутизатор</h3>
+    <p>RouterRF Sem 433 — конфигурация RF</p>
+  </a>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

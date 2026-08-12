@@ -1,0 +1,294 @@
+{{define "expert_interfaces_tcp"}}
+{{template "expert_page_start" .}}
+
+<div class="card ptcp-page">
+  <div class="rf-conf-head">
+    <h3>Физический TCP</h3>
+    <div class="rf-conf-toolbar">
+      <button type="button" class="btn-secondary" id="ptcpAddBtn" onclick="ptcpAdd()">Добавить</button>
+      <button type="button" class="btn-secondary" id="ptcpDelBtn" onclick="ptcpDelete()" disabled>Удалить</button>
+      <span id="ptcpStatus" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Интерфейсы</div>
+      <div class="hw-table-wrap">
+        <table class="hw-table ptcp-table" id="ptcpTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Хост</th>
+              <th>Порт</th>
+            </tr>
+          </thead>
+          <tbody id="ptcpTableBody">
+            <tr><td colspan="3" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rf-conf-section" id="ptcpFormSection">
+      <div class="rf-conf-section-title">Настройка интерфейса</div>
+      <form id="ptcpForm" class="sys-form" onsubmit="return ptcpSave(event)">
+        <input type="hidden" id="ptcpIdx" value="0" />
+        <div class="rf-cfgnode-fields ptcp-fields">
+          <div class="rf-conf-field ptcp-field-wide">
+            <label>Локальный сервер</label>
+            <input id="ptcpLocalServer" type="text" readonly />
+          </div>
+          <div class="rf-conf-field">
+            <label>Хост</label>
+            <input id="ptcpHost" type="text" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Порт TCP</label>
+            <input id="ptcpPort" type="number" min="1" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Таймаут соединения, мс</label>
+            <input id="ptcpConnectTimeout" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Пауза после connect, мс</label>
+            <input id="ptcpAfterConnectTimeout" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Таймаут ответа, мс</label>
+            <input id="ptcpResponseTimeout" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Межбайтовый таймаут, мс</label>
+            <input id="ptcpSubByteTimeout" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Таймаут переподключения, мс</label>
+            <input id="ptcpReConnectTimeout" type="number" min="0" max="65535" />
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="ptcpSaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="ptcpItemsJson" type="application/json">{{.PhyTcpJSON}}</script>
+<script>
+(function () {
+  function parseJson(id) {
+    try {
+      const el = document.getElementById(id);
+      let parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  const defaults = {
+    local_server: '',
+    host_name: '127.0.0.1',
+    port_tcp: 502,
+    connect_timeout: 5000,
+    after_connect_timeout: 1000,
+    response_timeout: 3000,
+    sub_byte_timeout: 100,
+    re_connect_timeout: 10000
+  };
+
+  let items = parseJson('ptcpItemsJson');
+  let selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    const el = document.getElementById('ptcpStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function num(id, fallback) {
+    const v = Number(document.getElementById(id).value);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function setFormEnabled(on) {
+    document.getElementById('ptcpSaveBtn').disabled = !on;
+    document.getElementById('ptcpDelBtn').disabled = !on;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('ptcpTableBody');
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="muted">Нет интерфейсов</td></tr>';
+      setFormEnabled(false);
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, i) {
+      const sel = i === selected ? ' is-selected' : '';
+      return (
+        '<tr class="hw-row ptcp-row' + sel + '" data-idx="' + i + '">' +
+        '<td>' + i + '</td>' +
+        '<td class="ptcp-host">' + (m.host_name || '') + '</td>' +
+        '<td class="ptcp-port">' + (m.port_tcp || '') + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    tbody.querySelectorAll('.ptcp-row').forEach(function (row) {
+      row.onclick = function () {
+        ptcpSelect(Number(row.dataset.idx));
+      };
+    });
+  }
+
+  function fillForm(idx) {
+    const m = items[idx];
+    if (!m) return;
+    document.getElementById('ptcpIdx').value = String(idx);
+    document.getElementById('ptcpLocalServer').value = m.local_server || '';
+    document.getElementById('ptcpHost').value = m.host_name || '';
+    document.getElementById('ptcpPort').value = m.port_tcp || 0;
+    document.getElementById('ptcpConnectTimeout').value = m.connect_timeout || 0;
+    document.getElementById('ptcpAfterConnectTimeout').value = m.after_connect_timeout || 0;
+    document.getElementById('ptcpResponseTimeout').value = m.response_timeout || 0;
+    document.getElementById('ptcpSubByteTimeout').value = m.sub_byte_timeout || 0;
+    document.getElementById('ptcpReConnectTimeout').value = m.re_connect_timeout || 0;
+    setFormEnabled(true);
+  }
+
+  function readForm() {
+    return {
+      local_server: document.getElementById('ptcpLocalServer').value || '',
+      host_name: document.getElementById('ptcpHost').value.trim(),
+      port_tcp: num('ptcpPort', 0),
+      connect_timeout: num('ptcpConnectTimeout', 0),
+      after_connect_timeout: num('ptcpAfterConnectTimeout', 0),
+      response_timeout: num('ptcpResponseTimeout', 0),
+      sub_byte_timeout: num('ptcpSubByteTimeout', 0),
+      re_connect_timeout: num('ptcpReConnectTimeout', 0)
+    };
+  }
+
+  function validate(body) {
+    if (!body.host_name) return 'Укажите хост';
+    if (body.port_tcp < 1 || body.port_tcp > 65535) return 'Некорректный порт';
+    return '';
+  }
+
+  window.ptcpSelect = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.querySelectorAll('.ptcp-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    setStatus('Выбран интерфейс #' + idx);
+  };
+
+  window.ptcpSave = function (ev) {
+    ev.preventDefault();
+    const idx = Number(document.getElementById('ptcpIdx').value);
+    const body = readForm();
+    const errMsg = validate(body);
+    if (errMsg) {
+      setStatus(errMsg, false);
+      return false;
+    }
+    setStatus('Сохранение…');
+    fetch('/api/interfaces/tcp?idx=' + idx, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      items[idx] = body;
+      renderTable();
+      ptcpSelect(idx);
+      setStatus('Сохранено', true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  window.ptcpAdd = function () {
+    const body = Object.assign({}, defaults);
+    setStatus('Добавление…');
+    fetch('/api/interfaces/tcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function (data) {
+      return reloadAll().then(function () {
+        const idx = (typeof data.index === 'number') ? data.index : items.length - 1;
+        if (idx >= 0) ptcpSelect(idx);
+        setStatus('Добавлено', true);
+      });
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.ptcpDelete = function () {
+    if (selected < 0 || selected >= items.length) return;
+    if (!confirm('Удалить интерфейс #' + selected + '?')) return;
+    const idx = selected;
+    setStatus('Удаление…');
+    fetch('/api/interfaces/tcp?idx=' + idx, { method: 'DELETE' })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error((data && data.error) || r.statusText);
+          return data;
+        });
+      })
+      .then(function () {
+        return reloadAll().then(function () {
+          setStatus('Удалено', true);
+        });
+      })
+      .catch(function (err) {
+        setStatus(err.message, false);
+      });
+  };
+
+  function reloadAll() {
+    setStatus('Загрузка…');
+    return fetch('/api/interfaces/tcp')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        items = (data && data.items) || [];
+        selected = items.length ? Math.min(Math.max(selected, 0), items.length - 1) : -1;
+        renderTable();
+        if (selected >= 0) ptcpSelect(selected);
+        else {
+          setFormEnabled(false);
+          document.getElementById('ptcpForm').reset();
+          document.getElementById('ptcpLocalServer').value = '';
+        }
+        setStatus('');
+      });
+  }
+
+  renderTable();
+  if (selected >= 0) ptcpSelect(selected);
+  else setFormEnabled(false);
+  if (!items.length) reloadAll();
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

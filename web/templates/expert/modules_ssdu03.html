@@ -1,0 +1,405 @@
+{{define "expert_modules_ssdu03"}}
+{{template "expert_page_start" .}}
+
+<div class="card ssdu03-page">
+  <div class="rf-conf-head">
+    <p class="page-lead"><a href="/expert/modules">← Обзор модулей</a></p>
+    <h3>УСПД в протоколе ССДУ-03</h3>
+    <div class="rf-conf-toolbar">
+      {{if not .DeviceBacked}}
+      <button type="button" class="btn-secondary" id="ssdu03AddBtn" onclick="ssdu03Add()">Добавить</button>
+      <button type="button" class="btn-secondary" id="ssdu03DelBtn" onclick="ssdu03Delete()" disabled>Удалить</button>
+      {{end}}
+      <span id="ssdu03Status" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Модули</div>
+      <div class="hw-table-wrap">
+        <table class="hw-table ssdu03-table" id="ssdu03Table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Исходящий интерфейс</th>
+              <th>Группа</th>
+              <th>Заводской номер</th>
+            </tr>
+          </thead>
+          <tbody id="ssdu03TableBody">
+            <tr><td colspan="4" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rf-conf-section" id="ssdu03FormSection">
+      <div class="rf-conf-section-title">Настройка модуля</div>
+      <form id="ssdu03Form" class="sys-form" onsubmit="return ssdu03Save(event)">
+        <input type="hidden" id="ssdu03Idx" value="0" />
+        <div class="rf-cfgnode-fields ssdu03-fields">
+          <div class="rf-conf-field ssdu03-field-wide">
+            <label>Исходящий интерфейс</label>
+            <select id="ssdu03LocalOutput"></select>
+          </div>
+          <div class="rf-conf-field ssdu03-field-wide">
+            <label>Группа устройств</label>
+            <select id="ssdu03EpGroup"></select>
+          </div>
+          <div class="rf-conf-field ssdu03-field-wide">
+            <label>Заводской номер</label>
+            <input id="ssdu03SerialNum" type="text" />
+          </div>
+          <div class="rf-conf-field ssdu03-field-wide">
+            <label>Тип устройства</label>
+            <input id="ssdu03TypeDevice" type="text" />
+          </div>
+          <div class="rf-conf-field ssdu03-field-wide">
+            <label>Дата производства</label>
+            <input id="ssdu03ProduceDate" type="text" placeholder="ДД.ММ.ГГГГ" />
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="ssdu03SaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="ssdu03ItemsJson" type="application/json">{{.Ssdu03ListJSON}}</script>
+<script id="ssdu03TransfersJson" type="application/json">{{.TransferIfacesJSON}}</script>
+<script id="ssdu03GroupsJson" type="application/json">{{.EpGroupsJSON}}</script>
+<script>
+(function () {
+  function parseJson(id) {
+    try {
+      var el = document.getElementById(id);
+      var parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function emptyModule() {
+    return {
+      local_server_input: '',
+      local_server_output: '',
+      ep_group_idx: 0,
+      config_ssdu: {
+        num_tarif: 4,
+        num_month: 12,
+        sync_time_type: 0,
+        ref_node: 0,
+        num_days: 31,
+        auto_search: 1,
+        ntp_min_asinc: 1,
+        ntp_max_asinc: 3600
+      },
+      main_node: {
+        node_type: 1,
+        node_status: 0,
+        n_port: 1,
+        tariff_idx: 0,
+        net_adr: 1,
+        group_mask: 65535,
+        user_id: '',
+        type_device: 'SSDU-03',
+        serial_num: '',
+        produce_date: '',
+        check_date: '',
+        soft_ver: 768,
+        password: '',
+        full_serial: ''
+      },
+      admin_pass: { value: '' },
+      comerc_pass: { value: '' },
+      smtp_cfg: { smtp_server: '', smtp_login: '', ntp_server: '' },
+      tasks: []
+    };
+  }
+
+  var items = parseJson('ssdu03ItemsJson');
+  var transfers = parseJson('ssdu03TransfersJson');
+  var groups = parseJson('ssdu03GroupsJson');
+  var selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    var el = document.getElementById('ssdu03Status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function transferLabel(serverOutput) {
+    for (var i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === serverOutput) return transfers[i].label;
+    }
+    return serverOutput || '—';
+  }
+
+  function groupLabel(idx) {
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) {
+        return 'Группа #' + idx + ' (' + groups[i].count + ' устр.)';
+      }
+    }
+    return 'Группа #' + idx;
+  }
+
+  function ensureTransferOption(serverOutput) {
+    if (!serverOutput) return;
+    for (var i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === serverOutput) return;
+    }
+    transfers.push({ kind: 'custom', label: 'Текущее: ' + serverOutput, server_output: serverOutput });
+  }
+
+  function ensureGroupOption(idx) {
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) return;
+    }
+    groups.push({ index: idx, count: 0 });
+  }
+
+  function fillTransferSelect(current) {
+    var sel = document.getElementById('ssdu03LocalOutput');
+    if (!sel) return;
+    ensureTransferOption(current);
+    sel.innerHTML = '';
+    transfers.forEach(function (t) {
+      var opt = document.createElement('option');
+      opt.value = t.server_output;
+      opt.textContent = t.label;
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+  }
+
+  function fillGroupSelect(current) {
+    var sel = document.getElementById('ssdu03EpGroup');
+    if (!sel) return;
+    ensureGroupOption(current);
+    groups.sort(function (a, b) { return a.index - b.index; });
+    sel.innerHTML = '';
+    groups.forEach(function (g) {
+      var opt = document.createElement('option');
+      opt.value = String(g.index);
+      opt.textContent = groupLabel(g.index);
+      sel.appendChild(opt);
+    });
+    sel.value = String(current);
+  }
+
+  function setFormEnabled(on) {
+    document.getElementById('ssdu03SaveBtn').disabled = !on;
+    var delBtn = document.getElementById('ssdu03DelBtn');
+    if (delBtn) delBtn.disabled = !on;
+  }
+
+  function str(id) {
+    return document.getElementById(id).value || '';
+  }
+
+  function setVal(id, v) {
+    document.getElementById(id).value = v == null ? '' : String(v);
+  }
+
+  function renderTable() {
+    var tbody = document.getElementById('ssdu03TableBody');
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">Нет модулей</td></tr>';
+      setFormEnabled(false);
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, i) {
+      var sel = i === selected ? ' is-selected' : '';
+      var serial = (m.main_node && m.main_node.serial_num) || '—';
+      return (
+        '<tr class="hw-row ssdu03-row' + sel + '" data-idx="' + i + '">' +
+        '<td>' + i + '</td>' +
+        '<td class="ssdu03-out">' + transferLabel(m.local_server_output) + '</td>' +
+        '<td>' + groupLabel(Number(m.ep_group_idx) || 0) + '</td>' +
+        '<td>' + serial + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    tbody.querySelectorAll('.ssdu03-row').forEach(function (row) {
+      row.onclick = function () {
+        ssdu03Select(Number(row.dataset.idx));
+      };
+    });
+  }
+
+  function fillForm(idx) {
+    var m = items[idx];
+    if (!m) return;
+    var node = m.main_node || {};
+    document.getElementById('ssdu03Idx').value = String(idx);
+    fillTransferSelect(m.local_server_output || '');
+    fillGroupSelect(Number(m.ep_group_idx) || 0);
+    setVal('ssdu03SerialNum', node.serial_num);
+    setVal('ssdu03TypeDevice', node.type_device);
+    setVal('ssdu03ProduceDate', node.produce_date);
+    setFormEnabled(true);
+  }
+
+  function readForm() {
+    var prev = items[Number(document.getElementById('ssdu03Idx').value)] || emptyModule();
+    var body = JSON.parse(JSON.stringify(prev));
+    body.local_server_output = document.getElementById('ssdu03LocalOutput').value;
+    body.ep_group_idx = Number(document.getElementById('ssdu03EpGroup').value) || 0;
+    if (!body.main_node) body.main_node = {};
+    body.main_node.serial_num = str('ssdu03SerialNum');
+    body.main_node.type_device = str('ssdu03TypeDevice');
+    body.main_node.produce_date = str('ssdu03ProduceDate');
+    return body;
+  }
+
+  window.ssdu03Select = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.querySelectorAll('.ssdu03-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    setStatus('Выбран модуль #' + idx);
+  };
+
+  window.ssdu03Save = function (ev) {
+    ev.preventDefault();
+    var idx = Number(document.getElementById('ssdu03Idx').value);
+    var body = readForm();
+    if (!body.local_server_output) {
+      setStatus('Выберите исходящий интерфейс', false);
+      return false;
+    }
+    setStatus('Сохранение…');
+    fetch('/api/modules/ssdu03?idx=' + idx, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      items[idx] = body;
+      renderTable();
+      ssdu03Select(idx);
+      setStatus('Сохранено', true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  window.ssdu03Add = function () {
+    var body = emptyModule();
+    if (transfers.length) {
+      body.local_server_output = transfers[0].server_output;
+    }
+    if (groups.length) {
+      body.ep_group_idx = groups[0].index != null ? groups[0].index : 0;
+    }
+    if (!body.local_server_output) {
+      setStatus('Нет доступных исходящих интерфейсов', false);
+      return;
+    }
+    setStatus('Добавление…');
+    fetch('/api/modules/ssdu03', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      return reloadAll().then(function () {
+        if (items.length) ssdu03Select(items.length - 1);
+        setStatus('Добавлено', true);
+      });
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.ssdu03Delete = function () {
+    if (selected < 0 || selected >= items.length) return;
+    if (!confirm('Удалить модуль #' + selected + '?')) return;
+    var idx = selected;
+    setStatus('Удаление…');
+    fetch('/api/modules/ssdu03?idx=' + idx, { method: 'DELETE' })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error((data && data.error) || r.statusText);
+          return data;
+        });
+      })
+      .then(function () {
+        return reloadAll().then(function () {
+          setStatus('Удалено', true);
+        });
+      })
+      .catch(function (err) {
+        setStatus(err.message, false);
+      });
+  };
+
+  function reloadAll() {
+    setStatus('Загрузка…');
+    return Promise.all([
+      fetch('/api/modules/ssdu03').then(function (r) { return r.json(); }),
+      fetch('/api/modules/ssdu03?transfers=1').then(function (r) { return r.json(); }),
+      fetch('/api/endpoint-groups').then(function (r) { return r.json(); })
+    ]).then(function (results) {
+      items = (results[0] && results[0].items) || [];
+      transfers = (results[1] && results[1].items) || transfers || [];
+      groups = (results[2] && results[2].items) || groups || [];
+      items.forEach(function (m) {
+        ensureTransferOption(m.local_server_output);
+        ensureGroupOption(Number(m.ep_group_idx) || 0);
+      });
+      selected = items.length ? Math.min(Math.max(selected, 0), items.length - 1) : -1;
+      renderTable();
+      if (selected >= 0) ssdu03Select(selected);
+      else {
+        setFormEnabled(false);
+        document.getElementById('ssdu03Form').reset();
+      }
+      setStatus('Модулей: ' + items.length, true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      renderTable();
+    });
+  }
+
+  var urlIdx = new URLSearchParams(window.location.search).get('idx');
+  if (items.length) {
+    items.forEach(function (m) {
+      ensureTransferOption(m.local_server_output);
+      ensureGroupOption(Number(m.ep_group_idx) || 0);
+    });
+    renderTable();
+    var startIdx = urlIdx !== null ? Number(urlIdx) : 0;
+    if (Number.isFinite(startIdx) && startIdx >= 0 && startIdx < items.length) {
+      ssdu03Select(startIdx);
+    } else {
+      ssdu03Select(0);
+    }
+    setStatus('Модулей: ' + items.length);
+  } else {
+    reloadAll();
+  }
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

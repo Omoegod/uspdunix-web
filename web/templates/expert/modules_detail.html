@@ -1,0 +1,200 @@
+{{define "expert_modules_detail"}}
+{{template "expert_page_start" .}}
+
+<p class="page-lead"><a href="/expert/modules/{{.ModuleKind}}">← Список</a></p>
+<div class="card">
+    {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+    {{if .Message}}<p class="ok">{{.Message}}</p>{{end}}
+    <form method="post">
+      {{if eq .ModuleKind "protocol-converter"}}
+      <label>Local server input</label>
+      <input name="local_server_input" value="{{.ProtConv.LocalServerInput}}" />
+      <label>Local server output</label>
+      <input name="local_server_output" value="{{.ProtConv.LocalServerOutput}}" />
+      <label>Endpoint group index (0..{{.EpGroupCount}})</label>
+      <input name="ep_group_idx" value="{{.ProtConv.EpGroupIdx}}" />
+      {{end}}
+
+      {{if eq .ModuleKind "uspd-gss-ep"}}
+      <label>Local server input</label>
+      <input name="local_server_input" value="{{.GssEp.LocalServerInput}}" />
+      <label>Local server output</label>
+      <input name="local_server_output" value="{{.GssEp.LocalServerOutput}}" />
+      <label>Endpoint group index</label>
+      <input name="ep_group_idx" value="{{.GssEp.EpGroupIdx}}" />
+      {{end}}
+
+      {{if eq .ModuleKind "uspd-gss-reader"}}
+      <h2>Group and transfer interface</h2>
+      <label>Endpoint group</label>
+      <select name="ep_group_idx">
+        {{range .EpGroups}}
+        <option value="{{.Index}}" {{if eq (printf "%v" $.GssReader.EpGroupIdx) (printf "%v" .Index)}}selected{{end}}>
+          Group #{{.Index}} ({{.Count}} endpoints)
+        </option>
+        {{else}}
+        <option value="{{.GssReader.EpGroupIdx}}" selected>Group #{{.GssReader.EpGroupIdx}}</option>
+        {{end}}
+      </select>
+      <label>Transfer interface (server output)</label>
+      <select name="server_output">
+        {{range .TransferIfaces}}
+        <option value="{{.ServerOutput}}" {{if eq $.GssReader.ServerOutput .ServerOutput}}selected{{end}}>{{.Label}}</option>
+        {{else}}
+        <option value="{{.GssReader.ServerOutput}}" selected>{{.GssReader.ServerOutput}}</option>
+        {{end}}
+      </select>
+      <details>
+        <summary>Advanced timing parameters</summary>
+      <label>Mute start (HH:MM:SS)</label>
+      <input name="mute_start" value="{{.GssReader.MuteStart}}" />
+      <label>Mute stop</label>
+      <input name="mute_stop" value="{{.GssReader.MuteStop}}" />
+      <label>Period Ki/Ku/DF (sec)</label>
+      <input name="period_update_ki_ku_and_df" value="{{.GssReader.PeriodUpdateKiKuAndDF}}" />
+      <label>Period event (sec)</label>
+      <input name="period_update_event" value="{{.GssReader.PeriodUpdateEvent}}" />
+      <label>Period verify time (sec)</label>
+      <input name="period_verify_time" value="{{.GssReader.PeriodVerifyTime}}" />
+      <label>Max time async (sec)</label>
+      <input name="max_time_asynk" value="{{.GssReader.MaxTimeAsynk}}" />
+      <label>Max time async up (sec)</label>
+      <input name="max_time_asynk_up" value="{{.GssReader.MaxTimeAsynkUp}}" />
+      <label>Task max work (sec)</label>
+      <input name="task_max_work_time" value="{{.GssReader.TaskMaxWorkTime}}" />
+      <label>Task idle (sec)</label>
+      <input name="task_idle_time" value="{{.GssReader.TaskIdleTime}}" />
+      <label>Year archive depth</label>
+      <input name="year_arh_listen_count" value="{{.GssReader.YearArhListenCount}}" />
+      <label>Month archive depth</label>
+      <input name="month_arh_listen_count" value="{{.GssReader.MonthArhListenCount}}" />
+      <label>Day archive depth</label>
+      <input name="day_arh_listen_count" value="{{.GssReader.DayArhListenCount}}" />
+      <label>Period MBus data (sec)</label>
+      <input name="period_update_data_mb" value="{{.GssReader.PeriodUpdateDataMb}}" />
+      </details>
+      {{end}}
+
+      {{if eq .ModuleKind "ssdu02"}}
+      <h2>Group and transfer interface</h2>
+      <label>Endpoint group</label>
+      <select name="ep_group_idx">
+        {{range .EpGroups}}
+        <option value="{{.Index}}" {{if eq (printf "%v" $.Ssdu02.EpGroupIdx) (printf "%v" .Index)}}selected{{end}}>
+          Group #{{.Index}} ({{.Count}} endpoints)
+        </option>
+        {{else}}
+        <option value="{{.Ssdu02.EpGroupIdx}}" selected>Group #{{.Ssdu02.EpGroupIdx}}</option>
+        {{end}}
+      </select>
+      <label>Transfer interface (local server output)</label>
+      <select name="local_server_output">
+        {{range .TransferIfaces}}
+        <option value="{{.ServerOutput}}" {{if eq $.Ssdu02BaseOutput .ServerOutput}}selected{{end}}>{{.Label}}</option>
+        {{else}}
+        <option value="{{.Ssdu02BaseOutput}}" selected>{{.Ssdu02BaseOutput}}</option>
+        {{end}}
+      </select>
+      <label><input type="checkbox" name="transit_exchange" value="1" {{if .Ssdu02Transit}}checked{{end}} /> Транзитный обмен</label>
+      <input type="hidden" name="local_server_input" value="{{.Ssdu02.LocalServerInput}}" />
+      <details>
+        <summary>Advanced SSDU02 parameters</summary>
+      <h2>SSDU config</h2>
+      <label>Num tarifs</label><input name="num_tarif" value="{{.Ssdu02.ConfigSSDU.NumTarif}}" />
+      <label>Num months</label><input name="num_month" value="{{.Ssdu02.ConfigSSDU.NumMonth}}" />
+      <label>Auto search</label><input name="auto_search" value="{{.Ssdu02.ConfigSSDU.AutoSearch}}" />
+      <label>NTP max async</label><input name="ntp_max_asinc" value="{{.Ssdu02.ConfigSSDU.NTPMaxAsinc}}" />
+      <h2>Main node</h2>
+      <label>Node type</label><input name="node_type" value="{{.Ssdu02.MainNode.NodeType}}" />
+      <label>Net address</label><input name="net_adr" value="{{.Ssdu02.MainNode.NetAdr}}" />
+      <label>Serial number</label><input name="serial_num" value="{{.Ssdu02.MainNode.SerialNum}}" />
+      <label>Soft version</label><input name="soft_ver" value="{{.Ssdu02.MainNode.SoftVer}}" />
+      <label>Admin password</label><input name="admin_pass" value="{{.Ssdu02.AdminPass.Value}}" />
+      <label>Commercial password</label><input name="comerc_pass" value="{{.Ssdu02.ComercPass.Value}}" />
+      </details>
+      {{end}}
+
+      {{if eq .ModuleKind "ssdu03"}}
+      <h2>Group and transfer interface</h2>
+      <label>Endpoint group</label>
+      <select name="ep_group_idx">
+        {{range .EpGroups}}
+        <option value="{{.Index}}" {{if eq (printf "%v" $.Ssdu03.EpGroupIdx) (printf "%v" .Index)}}selected{{end}}>
+          Group #{{.Index}} ({{.Count}} endpoints)
+        </option>
+        {{else}}
+        <option value="{{.Ssdu03.EpGroupIdx}}" selected>Group #{{.Ssdu03.EpGroupIdx}}</option>
+        {{end}}
+      </select>
+      <label>Transfer interface (local server output)</label>
+      <select name="local_server_output">
+        {{range .TransferIfaces}}
+        <option value="{{.ServerOutput}}" {{if eq $.Ssdu03BaseOutput .ServerOutput}}selected{{end}}>{{.Label}}</option>
+        {{else}}
+        <option value="{{.Ssdu03BaseOutput}}" selected>{{.Ssdu03BaseOutput}}</option>
+        {{end}}
+      </select>
+      <input type="hidden" name="local_server_input" value="{{.Ssdu03.LocalServerInput}}" />
+      <details>
+        <summary>Advanced SSDU03 parameters</summary>
+      <h2>SSDU config</h2>
+      <label>Num tarifs</label><input name="num_tarif" value="{{.Ssdu03.ConfigSSDU.NumTarif}}" />
+      <label>Num months</label><input name="num_month" value="{{.Ssdu03.ConfigSSDU.NumMonth}}" />
+      <label>Auto search</label><input name="auto_search" value="{{.Ssdu03.ConfigSSDU.AutoSearch}}" />
+      <label>NTP max async</label><input name="ntp_max_asinc" value="{{.Ssdu03.ConfigSSDU.NTPMaxAsinc}}" />
+      <h2>Main node</h2>
+      <label>Node type</label><input name="node_type" value="{{.Ssdu03.MainNode.NodeType}}" />
+      <label>Net address</label><input name="net_adr" value="{{.Ssdu03.MainNode.NetAdr}}" />
+      <label>Serial number</label><input name="serial_num" value="{{.Ssdu03.MainNode.SerialNum}}" />
+      <label>Soft version</label><input name="soft_ver" value="{{.Ssdu03.MainNode.SoftVer}}" />
+      <label>Admin password</label><input name="admin_pass" value="{{.Ssdu03.AdminPass.Value}}" />
+      <label>Commercial password</label><input name="comerc_pass" value="{{.Ssdu03.ComercPass.Value}}" />
+      <h2>SMTP (file config)</h2>
+      <label>SMTP server</label><input name="smtp_server" value="{{.Ssdu03.SmtpCfg.SmtpServer}}" />
+      <label>SMTP login</label><input name="smtp_login" value="{{.Ssdu03.SmtpCfg.SmtpLogin}}" />
+      <label>NTP server</label><input name="ntp_server" value="{{.Ssdu03.SmtpCfg.NtpServer}}" />
+      </details>
+      {{end}}
+
+      {{if eq .ModuleKind "rmxx"}}
+      <label>COM1 input</label><input name="local_server_in_com1" value="{{.RmXX.LocalServerInCOM1}}" />
+      <label>COM2 input</label><input name="local_server_in_com2" value="{{.RmXX.LocalServerInCOM2}}" />
+      <label>RF output</label><input name="local_server_out_rfs" value="{{.RmXX.LocalServerOutRFs}}" />
+      <label>Serial</label><input name="serial_number" value="{{.RmXX.SerialNumber}}" />
+      <label>Transit mode</label><input name="transit_mode" value="{{.RmXX.TransitMode}}" />
+      {{end}}
+
+      {{if eq .ModuleKind "mbus-modbus"}}
+      <label>Local server input</label><input name="local_server_input" value="{{.MBusModbus.LocalServerInput}}" />
+      <label>Serial num</label><input name="serial_num" value="{{.MBusModbus.SerialNum}}" />
+      <label>EP group</label><input name="ep_group_idx" value="{{.MBusModbus.EpGroupIdx}}" />
+      {{end}}
+
+      {{if eq .ModuleKind "dlms-profiles"}}
+      <label>Profile name</label><input name="profile_name" value="{{.DlmsProfile.ProfileName}}" />
+      <label>EP compatible</label><input name="ep_compatible" value="{{.DlmsProfile.EpCompatible}}" />
+      <label>HDLC TX len</label><input name="max_inf_fld_len_tx" value="{{.DlmsProfile.Hdlc.MaxInfFldLenTx}}" />
+      <label>HDLC RX len</label><input name="max_inf_fld_len_rx" value="{{.DlmsProfile.Hdlc.MaxInfFldLenRx}}" />
+      <label>Dst logical addr</label><input name="dst_log_adr" value="{{.DlmsProfile.Hdlc.DstLogAdr}}" />
+      <label>Auth read (hex)</label><input name="auth_read_hex" value="{{.DlmsProfile.AssociationRead.AuthValueHex}}" />
+      <label>Auth write (hex)</label><input name="auth_write_hex" value="{{.DlmsProfile.AssociationWrite.AuthValueHex}}" />
+      {{end}}
+
+      {{if eq .ModuleKind "becloud"}}
+      <label><input type="checkbox" name="enable" value="1" {{if .BeCloud.Enable}}checked{{end}} /> Enabled</label>
+      <label>User</label><input name="user_name" value="{{.BeCloud.UserName}}" />
+      <label>Password</label><input name="password" type="password" value="{{.BeCloud.Password}}" />
+      <label>Token URL</label><input name="url_token" value="{{.BeCloud.UrlToken}}" size="50" />
+      <label>Devices URL</label><input name="url_devices" value="{{.BeCloud.UrlDevices}}" size="50" />
+      <label>EP group</label><input name="ep_group_idx" value="{{.BeCloud.EpGroupIdx}}" />
+      <label>Run period (sec)</label><input name="task_run_period" value="{{.BeCloud.TaskRunPeriod}}" />
+      <p class="muted">Local data entries: {{.BeCloudLocalN}} — API: <code>?local_data=1</code></p>
+      {{end}}
+
+      <button type="submit">Save (COM_UPD_MOD)</button>
+    </form>
+    <p class="muted">Logs: <code>GET ?idx={{.ModuleIndex}}&amp;logs=1</code></p>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

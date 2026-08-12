@@ -1,0 +1,34 @@
+{{define "expert_service"}}
+{{template "expert_page_start" .}}
+
+<div class="card">
+  <p>Модули запущены: <strong>{{.ModulesRunning}}</strong></p>
+  <form method="post" style="display:inline;">
+    <input type="hidden" name="action" value="save" />
+    <button type="submit" class="btn-primary">Сохранить конфигурацию</button>
+  </form>
+  <form method="post" style="display:inline;">
+    <input type="hidden" name="action" value="start" />
+    <button type="submit">Запустить модули</button>
+  </form>
+  <form method="post" style="display:inline;">
+    <input type="hidden" name="action" value="stop" />
+    <button type="submit">Остановить модули</button>
+  </form>
+  <h2>Скрипты</h2>
+  <ul>{{range .Scripts}}<li>{{.}}</li>{{end}}</ul>
+  <form method="post">
+    <input type="hidden" name="action" value="run_script" />
+    <label>Скрипт</label>
+    <select name="script_name">{{range .Scripts}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+    <label>Параметр</label><input name="script_param" />
+    <label>Флаги</label><input name="flags" value="0" />
+    <button type="submit" class="btn-primary">Выполнить</button>
+  </form>
+  <h2>Логи</h2>
+  <pre>{{range .Logs}}{{.}}
+{{end}}</pre>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

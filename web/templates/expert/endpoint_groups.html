@@ -1,0 +1,35 @@
+{{define "expert_endpoint_groups"}}
+{{template "expert_page_start" .}}
+
+<div class="card">
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+  <p class="muted">ITERATOR_EP_GROUP — групп: {{.EpGroupCount}}</p>
+  <table>
+    <tr><th>#</th><th>Участников</th><th></th></tr>
+    {{range .EpGroups}}
+    <tr>
+      <td>{{.Index}}</td>
+      <td>{{.Count}}</td>
+      <td>
+        <a href="/expert/endpoint-groups/detail?idx={{.Index}}">Редактировать</a>
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="action" value="delete" />
+          <input type="hidden" name="idx" value="{{.Index}}" />
+          <button type="submit">Удалить</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+  </table>
+  <form method="post">
+    <input type="hidden" name="action" value="add" />
+    <button type="submit" class="btn-primary">Добавить группу</button>
+  </form>
+  <form method="post" style="margin-top:1rem;">
+    <input type="hidden" name="action" value="delete_all" />
+    <button type="submit" class="btn-danger">Удалить все группы</button>
+  </form>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

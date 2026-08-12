@@ -1,0 +1,1926 @@
+{{define "expert_rf_config"}}
+{{template "expert_page_start" .}}
+
+<div id="globalStatus" class="status {{if .RFConnected}}ok{{else}}info{{end}}">
+  {{if .RFConnected}}Подключено к {{.RFHost}}:{{.RFPort}}{{else}}RouterRF: {{.RFHost}}:{{.RFPort}} — соединение при чтении/записи{{end}}
+</div>
+
+<div class="card rf-panels">
+    <div id="panel-conn" class="rf-panel{{if not .ShowRFConnUI}} rf-panel-hidden{{end}}">
+      <h3>TCP-соединение с RouterRF</h3>
+      <p class="muted" style="font-size:12px;margin:0 0 10px">Обычно скрыто: IP берётся из адреса УСПД (на устройстве — localhost). Панель включается через USPD_SHOW_RF_CONN=1.</p>
+      <div class="row2">
+        <div>
+          <label>IP-адрес</label>
+          <input id="rfHost" type="text" placeholder="127.0.0.1" value="{{.RFHost}}" />
+        </div>
+        <div>
+          <label>Порт TCP</label>
+          <input id="rfPort" type="number" value="{{if .RFPort}}{{.RFPort}}{{else}}10001{{end}}" />
+        </div>
+        <div>
+          <label>Write key (байт протокола)</label>
+          <input id="rfWriteKey" type="number" min="0" max="255" value="16" />
+        </div>
+        <div>
+          <label>Clear key (байт протокола)</label>
+          <input id="rfClearKey" type="number" min="0" max="255" value="30" />
+        </div>
+      </div>
+      <button class="btn-primary" onclick="rfConnect()">Подключить</button>
+      <button class="btn-danger" onclick="rfDisconnect()">Отключить</button>
+    </div>
+
+    <div id="panel-conf" class="rf-panel{{if not .ShowRFConnUI}} active{{end}}">
+      <div class="rf-conf-head">
+        <h3>Параметры маршрутизатора</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="rfReadConfig()">Чтение</button>
+          <button class="btn-primary" onclick="rfWriteConfig()">Запись</button>
+        </div>
+      </div>
+
+      <div class="rf-conf-layout">
+        <section class="rf-conf-section">
+          <div class="rf-conf-section-title">Параметры RouterRF</div>
+          <div class="rf-conf-fields rf-conf-fields--3">
+            <div class="rf-conf-field">
+              <label>Версия ПО</label>
+              <input id="cfgSoftVer" readonly />
+            </div>
+            <div class="rf-conf-field">
+              <label>Серийный номер</label>
+              <input id="cfgSerial" readonly />
+            </div>
+            <div class="rf-conf-field rf-conf-field--span2">
+              <label>Тип устройства</label>
+              <input id="cfgDevType" readonly />
+            </div>
+          </div>
+        </section>
+
+        <section class="rf-conf-section">
+          <div class="rf-conf-section-title">Параметры порта связи</div>
+          <div class="rf-conf-fields rf-conf-fields--3">
+            <div class="rf-conf-field">
+              <label>Скорость</label>
+              <select id="cfgBaud">
+                <option value="1200">1200</option>
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600">9600</option>
+                <option value="19200">19200</option>
+              </select>
+            </div>
+            <div class="rf-conf-field">
+              <label>Паритет</label>
+              <select id="cfgParity">
+                <option value="0">Нет</option>
+                <option value="1">Нечетность</option>
+                <option value="2">Четность</option>
+              </select>
+            </div>
+            <div class="rf-conf-field">
+              <label>Стоп-биты</label>
+              <select id="cfgStop">
+                <option value="1">1</option>
+                <option value="2">2</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="rf-conf-section rf-conf-section--host">
+          <div class="rf-conf-section-title">Параметры хоста</div>
+          <div class="rf-conf-fields rf-conf-fields--4">
+            <div class="rf-conf-field">
+              <label>Сетевой адрес</label>
+              <input id="cfgNetAdr" type="number" readonly />
+            </div>
+            <div class="rf-conf-field">
+              <label>Номер подсети</label>
+              <input id="cfgNetNum" type="number" min="0" max="49" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Уровень мощности</label>
+              <input id="cfgPaLevel" type="number" min="0" max="10" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Версия ПО</label>
+              <input id="cfgHostSoftVer" readonly />
+            </div>
+            <div class="rf-conf-field">
+              <label>MAC-адрес</label>
+              <input id="cfgMac" readonly />
+            </div>
+            <div class="rf-conf-field">
+              <label>ModID (hex)</label>
+              <input id="cfgModID" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Пакеты, от</label>
+              <input id="cfgPakStart" type="number" min="0" max="249" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Пакеты, до</label>
+              <input id="cfgPakEnd" type="number" min="0" max="249" />
+            </div>
+            <div class="rf-conf-field rf-conf-field--span2">
+              <label>Key (16 hex)</label>
+              <input id="cfgRfKey" placeholder="3030303030303030" />
+            </div>
+            <div class="rf-conf-field rf-conf-field--span2">
+              <label>Маска групп</label>
+              <div class="rf-group-row">
+                <code id="cfgGroupDisplay" class="rf-group-mask">FFFFFFFF</code>
+                <span id="cfgGroupSummary" class="rf-group-hint"></span>
+                <button type="button" onclick="openGroupModal()">Выбрать группы</button>
+              </div>
+              <input id="cfgGroup" type="hidden" value="FFFFFFFF" />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="cfgGroupModal" class="rf-modal hidden" aria-hidden="true">
+        <div class="rf-modal-backdrop" onclick="closeGroupModal()"></div>
+        <div class="rf-modal-dialog" role="dialog" aria-labelledby="cfgGroupModalTitle">
+          <div class="rf-modal-header">
+            <h4 id="cfgGroupModalTitle">Маска групп</h4>
+            <button type="button" class="rf-modal-close" onclick="closeGroupModal()" aria-label="Закрыть">×</button>
+          </div>
+          <div class="rf-modal-body">
+            <div class="rf-group-presets">
+              <button type="button" onclick="setGroupPreset('all')">Все</button>
+              <button type="button" onclick="setGroupPreset('one')">Только 1</button>
+              <button type="button" onclick="setGroupPreset('none')">Сброс</button>
+            </div>
+            <div id="cfgGroupPicker" class="rf-group-grid"></div>
+          </div>
+          <div class="rf-modal-footer">
+            <code id="cfgGroupModalHex">FFFFFFFF</code>
+            <button type="button" class="btn-primary" onclick="closeGroupModal()">Готово</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-nodes" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Список узлов сети</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="rfReadNodes()">Чтение</button>
+          <button class="btn-primary" onclick="rfWriteNodes()">Запись</button>
+          <button class="btn-danger" onclick="rfClearNodes()">Стереть все</button>
+        </div>
+      </div>
+      <p id="nodesStats" class="muted" style="font-size:12px;margin:8px 0 0"></p>
+
+      <div class="rf-nodes-layout">
+        <div class="rf-nodes-main">
+          <div id="nodesTable" class="rf-nodes-table-wrap">
+            <p class="muted">Узлов нет — нажмите «Чтение»</p>
+          </div>
+        </div>
+        <aside id="nodesSidePanel" class="rf-nodes-side">
+          <button type="button" class="btn-danger rf-nodes-side-btn" onclick="rfNodesDeleteSelected()">Удалить выбранные</button>
+          <button type="button" class="btn-primary rf-nodes-side-btn" onclick="openNodesGroupModal()">Установка групп для выбранных узлов</button>
+        </aside>
+      </div>
+
+      <div id="nodesGroupModal" class="rf-modal hidden" aria-hidden="true">
+        <div class="rf-modal-backdrop" onclick="closeNodesGroupModal()"></div>
+        <div class="rf-modal-dialog" role="dialog" aria-labelledby="nodesGroupModalTitle">
+          <div class="rf-modal-header">
+            <h4 id="nodesGroupModalTitle">Установка групп</h4>
+            <button type="button" class="rf-modal-close" onclick="closeNodesGroupModal()" aria-label="Закрыть">×</button>
+          </div>
+          <div class="rf-modal-body">
+            <p id="nodesGroupModalHint" class="muted" style="font-size:12px;margin:0 0 10px"></p>
+            <div class="rf-group-presets">
+              <button type="button" onclick="setNodesGroupPreset('all')">Все</button>
+              <button type="button" onclick="setNodesGroupPreset('one')">Только 1</button>
+              <button type="button" onclick="setNodesGroupPreset('none')">Сброс</button>
+            </div>
+            <div id="nodesGroupPicker" class="rf-group-grid"></div>
+          </div>
+          <div class="rf-modal-footer rf-nodes-group-footer">
+            <code id="nodesGroupModalHex">FFFFFFFF</code>
+            <div class="rf-nodes-group-actions">
+              <button type="button" class="btn-primary" onclick="applyNodesGroupFromModal('set')">Назначить</button>
+              <button type="button" onclick="applyNodesGroupFromModal('add')">Добавить (стык)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-transit" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Режим работы</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="rfReadTransit()">Чтение</button>
+          <button class="btn-primary" onclick="rfWriteTransit()">Запись</button>
+        </div>
+      </div>
+
+      <div class="rf-conf-layout" style="margin-top:12px">
+        <section class="rf-conf-section rf-conf-section--host">
+          <div class="rf-conf-section-title">Транзитный режим</div>
+          <div class="rf-conf-fields rf-conf-fields--4">
+            <div class="rf-conf-field rf-conf-field--span2">
+              <label>Значение режима</label>
+              <input id="trMode" type="number" min="0" max="65535" />
+            </div>
+          </div>
+          <ul class="rf-transit-help">
+            <li><strong>0</strong> — нормальный режим работы (через Endpoint)</li>
+            <li><strong>1–254</strong> — прямое соединение с выбранным узлом для RAe</li>
+            <li><strong>255</strong> — использовать адрес узла для адресации нужного счётчика RFt</li>
+            <li><strong>1–65534</strong> — прямое соединение с выбранным узлом RFs</li>
+            <li><strong>65535</strong> — широковещательное соединение для RFs</li>
+          </ul>
+        </section>
+
+        <section class="rf-conf-section">
+          <div class="rf-conf-section-title">Параметры канала</div>
+          <div class="rf-conf-fields rf-conf-fields--3">
+            <div class="rf-conf-field rf-conf-field--span2">
+              <label>Минимальное качество сигнала для установки узла</label>
+              <input id="trMinRssi" type="number" />
+            </div>
+            <div class="rf-conf-field rf-conf-field--span2">
+              <label>Уровень сигнала на маршруте (0 — не использовать)</label>
+              <input id="trPow" type="number" min="0" max="10" />
+            </div>
+            <div class="rf-conf-field rf-conf-field--span2">
+              <label>Коэффициент свободного радиоканала</label>
+              <input id="trFreeRf" type="number" min="0" max="255" />
+            </div>
+            <div class="rf-conf-field">
+              <label class="rf-check-label"><input id="trAck" type="checkbox" /> Включить ACK</label>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="panel-endpoints" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Конечные точки (EP → узел)</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="rfReadEndpoints()">Чтение</button>
+          <button class="btn-primary" onclick="rfWriteEndpoints()">Запись</button>
+        </div>
+      </div>
+      <p class="muted" style="font-size:13px;margin:0 0 12px">Только RouterRF RFs v3+. EP 1…254 привязываются к индексу узла (0 = NULL).</p>
+      <div class="row2">
+        <div>
+          <label>Фильтр EP (пусто = все)</label>
+          <input id="epFilter" type="text" placeholder="1-10,15" oninput="renderEndpointsTable()" />
+        </div>
+        <div>
+          <label>Узел для привязки</label>
+          <select id="epNodeSelect"></select>
+          <button class="btn-primary" style="margin-top:8px" onclick="epLinkSelected()">Привязать выбранные EP</button>
+        </div>
+      </div>
+      <div id="epTable" style="margin-top:12px;overflow-x:auto;max-height:400px;overflow-y:auto"></div>
+    </div>
+
+    <div id="panel-netrfs" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Поиск сети RFs</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="rfDiscoverNet()">Поиск RFs</button>
+          <button class="btn-primary" onclick="rfWriteNetRFs()">Запись списка узлов</button>
+          <button class="btn-danger" onclick="rfClearNetReg()">Отключить регистрацию</button>
+        </div>
+      </div>
+
+      <div class="rf-netrfs-warn">
+        Страница для проведения тестов. Не рекомендуется записывать в радиомаршрутизатор список узлов с незаданными группами!
+      </div>
+
+      <div class="rf-netrfs-controls">
+        <label class="rf-check-label rf-netrfs-check">
+          <input id="rfsClrReg" type="checkbox" checked />
+          Отключить регистрацию на найденных узлах после окончания поиска
+        </label>
+        <div class="rf-netrfs-fields">
+          <div class="rf-conf-field">
+            <label>Время регистрации [Сек]</label>
+            <input id="rfsRegTm" type="number" min="100" max="4000" value="3600" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Окно случайного доступа [Миллисек]</label>
+            <select id="rfsRegWin">
+              <option value="0">1000</option>
+              <option value="1">4000</option>
+              <option value="2" selected>8000</option>
+              <option value="3">16000</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Кол-во узлов</label>
+            <input id="rfsMax" type="number" min="1" max="1023" value="1023" />
+          </div>
+        </div>
+        <div class="rf-netrfs-listbar">
+          <label class="rf-check-label">
+            <input id="rfsSelectAll" type="checkbox" onchange="rfNetRFsSelectAll(this.checked)" />
+            Выбрать все узлы
+          </label>
+          <button type="button" class="btn-secondary" onclick="rfNetRFsClearList()">Очистить список узлов</button>
+          <span id="rfsFoundCount" class="muted" style="font-size:12px"></span>
+        </div>
+      </div>
+
+      <div id="netrfsTable" class="rf-nodes-table-wrap rf-netrfs-table">
+        <p class="muted">Нажмите «Поиск RFs»</p>
+      </div>
+    </div>
+
+    <div id="panel-cfgnode" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Параметризация RF-узла / счётчика</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="cfgFindNode()">Чтение / поиск</button>
+          <button class="btn-primary" onclick="cfgWriteNode()">Запись параметров</button>
+        </div>
+      </div>
+
+      <div class="rf-cfgnode-layout">
+        <section class="rf-conf-section rf-cfgnode-search">
+          <div class="rf-conf-section-title">Параметры поиска</div>
+          <div class="rf-cfgnode-search-opts">
+            <label class="rf-check-label">
+              <input id="cfgByNear" type="radio" name="cfgFind" value="near" checked onchange="cfgToggleFind()" />
+              Искать ближайший
+            </label>
+            <div class="rf-cfgnode-search-row">
+              <label class="rf-check-label">
+                <input id="cfgByRf" type="radio" name="cfgFind" value="rf" onchange="cfgToggleFind()" />
+                Искать по сетевому адресу RF
+              </label>
+              <input id="cfgRfAdr" type="number" min="1" max="65529" value="1" disabled />
+            </div>
+            <div class="rf-cfgnode-search-row">
+              <label class="rf-check-label">
+                <input id="cfgBySn" type="radio" name="cfgFind" value="sn" onchange="cfgToggleFind()" />
+                Искать по заводскому номеру счётчика
+              </label>
+              <input id="cfgSn" type="text" placeholder="????????" maxlength="8" value="????????" disabled />
+            </div>
+            <input id="cfgRfExact" type="checkbox" style="display:none" />
+          </div>
+        </section>
+
+        <div class="rf-cfgnode-params">
+          <section class="rf-conf-section">
+            <div class="rf-conf-section-title">Параметры до записи</div>
+            <div class="rf-cfgnode-fields">
+              <div class="rf-conf-field">
+                <label>Сетевой адрес</label>
+                <input id="cfgRNetAdr" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Заводской номер</label>
+                <input id="cfgRSn" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Номер подсети</label>
+                <input id="cfgRNetNum" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Версия ПО</label>
+                <input id="cfgRSoftVer" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Уровень мощности</label>
+                <input id="cfgRPa" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Шифрование</label>
+                <input id="cfgRKey" readonly />
+              </div>
+            </div>
+          </section>
+
+          <section class="rf-conf-section">
+            <div class="rf-conf-section-title">Параметры после записи</div>
+            <div class="rf-cfgnode-fields">
+              <div class="rf-conf-field">
+                <label>Сетевой адрес</label>
+                <div class="rf-cfgnode-inline">
+                  <input id="cfgWNetAdr" type="number" min="0" max="65535" />
+                  <label class="rf-check-label">
+                    <input id="cfgRfAutoInc" type="checkbox" />
+                    Автоинкремент
+                  </label>
+                </div>
+              </div>
+              <div class="rf-conf-field">
+                <label>Заводской номер</label>
+                <div class="rf-cfgnode-inline">
+                  <input id="cfgWNewSn" type="text" maxlength="8" placeholder="новый SN hex" disabled />
+                  <label class="rf-check-label">
+                    <input id="cfgChgSn" type="checkbox" onchange="cfgToggleSnEdit()" />
+                    Сменить з/н
+                  </label>
+                </div>
+              </div>
+              <div class="rf-conf-field">
+                <label>Номер подсети</label>
+                <input id="cfgWNetNum" type="number" min="0" max="49" />
+              </div>
+              <div class="rf-conf-field">
+                <label>Уровень мощности</label>
+                <input id="cfgWPa" type="number" min="0" max="10" />
+              </div>
+              <div class="rf-conf-field rf-cfgnode-checks">
+                <label class="rf-check-label"><input id="cfgWRk" type="checkbox" /> Флаг PK</label>
+                <label class="rf-check-label"><input id="cfgWRr" type="checkbox" /> Флаг PP</label>
+              </div>
+              <div class="rf-conf-field rf-cfgnode-checks">
+                <label class="rf-check-label">
+                  <input id="cfgWUseKey" type="checkbox" onchange="document.getElementById('cfgWRfKey').disabled=!this.checked" />
+                  Вкл. шифр
+                </label>
+                <input id="cfgWRfKey" type="text" maxlength="8" placeholder="RF key" disabled />
+              </div>
+              <div id="cfgDlmsBox" class="rf-conf-field rf-cfgnode-dlms" style="display:none">
+                <label>DLMS HDLC-адрес</label>
+                <div class="rf-cfgnode-hdlc-row">
+                  <input id="cfgHdlc" type="number" min="0" max="65535" />
+                  <button type="button" class="btn-secondary" onclick="cfgApplyHdlc()">Вставить в SN</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="rf-conf-section rf-cfgnode-wm">
+          <label class="rf-conf-section-title rf-cfgnode-wm-title">
+            <input id="cfgSetWm" type="checkbox" />
+            Записывать сетевой адрес в счётчик после параметризации узла
+          </label>
+          <div class="rf-cfgnode-fields rf-cfgnode-wm-fields">
+            <div class="rf-conf-field">
+              <label>Сетевой адрес счётчика</label>
+              <input id="cfgWmAdr" type="number" min="1" max="254" value="1" />
+            </div>
+            <div class="rf-conf-field rf-cfgnode-checks">
+              <label class="rf-check-label">
+                <input id="cfgWmAutoInc" type="checkbox" />
+                Автоматически увеличивать адрес после записи
+              </label>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="panel-findmeter" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Поиск счётчика</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="fmSearch()">Поиск</button>
+          <button class="btn-primary" onclick="fmConnect()">Подключить</button>
+          <button class="btn-danger" onclick="fmDisconnect()">Отключить</button>
+        </div>
+      </div>
+
+      <div class="rf-cfgnode-layout">
+        <section class="rf-conf-section">
+          <div class="rf-conf-section-title">Параметры поиска</div>
+          <div class="rf-cfgnode-search-opts">
+            <label class="rf-check-label">
+              <input id="fmByNear" type="radio" name="fmFind" value="near" checked onchange="fmToggleFind()" />
+              Искать ближайший
+            </label>
+            <div class="rf-cfgnode-search-row">
+              <label class="rf-check-label">
+                <input id="fmByRf" type="radio" name="fmFind" value="rf" onchange="fmToggleFind()" />
+                Искать по сетевому адресу RF
+              </label>
+              <input id="fmRfAdr" type="number" min="1" max="65529" value="1" disabled />
+            </div>
+            <div class="rf-cfgnode-search-row">
+              <label class="rf-check-label">
+                <input id="fmBySn" type="radio" name="fmFind" value="sn" onchange="fmToggleFind()" />
+                Искать по заводскому номеру счётчика
+              </label>
+              <input id="fmSn" type="text" placeholder="????????" maxlength="8" value="????????" disabled />
+            </div>
+            <div class="rf-cfgnode-search-row">
+              <label>Макс. попыток</label>
+              <input id="fmMax" type="number" min="1" max="1000" value="100" />
+            </div>
+            <input id="fmRfExact" type="checkbox" style="display:none" />
+          </div>
+        </section>
+
+        <div class="rf-findmeter-results">
+          <section class="rf-conf-section">
+            <div class="rf-conf-section-title">Параметры найденного узла</div>
+            <div class="rf-cfgnode-fields">
+              <div class="rf-conf-field">
+                <label>Сетевой адрес</label>
+                <input id="fmRNetAdr" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Заводской номер</label>
+                <input id="fmModId" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Номер подсети</label>
+                <input id="fmNetNum" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Версия</label>
+                <input id="fmSoftVer" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Попыток</label>
+                <input id="fmAttempts" readonly />
+              </div>
+            </div>
+          </section>
+
+          <section class="rf-conf-section">
+            <div class="rf-conf-section-title">Параметры найденного счётчика</div>
+            <div class="rf-cfgnode-fields">
+              <div class="rf-conf-field">
+                <label>Тип устр-ва</label>
+                <input id="fmWmType" readonly />
+              </div>
+              <div class="rf-conf-field">
+                <label>Заводской номер </label>
+                <input id="fmWmSn" readonly />
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-nodescfg" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Параметризация по списку узлов</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="ncLoadNodes()">Чтение списка узлов</button>
+          <button class="btn-primary" onclick="ncRunTasks()">Выполнить задания</button>
+        </div>
+      </div>
+
+      <div class="rf-nodescfg-layout">
+        <section class="rf-conf-section">
+          <div class="rf-conf-section-title">Тип операции</div>
+          <div class="rf-nodescfg-op">
+            <div class="rf-nodescfg-tabs" role="tablist">
+              <button type="button" class="rf-nodescfg-tab active" id="ncTabWm" onclick="ncSetKind('wm_adr')">
+                Назначить сетевые адреса счётчикам
+              </button>
+              <button type="button" class="rf-nodescfg-tab" id="ncTabRf" onclick="ncSetKind('rf_node')">
+                Параметризация радиомодулей
+              </button>
+            </div>
+            <input type="hidden" id="ncKind" value="wm_adr" />
+
+            <div id="ncWmBox" class="rf-cfgnode-fields rf-nodescfg-params">
+              <div class="rf-conf-field">
+                <label>Начальный сетевой адрес</label>
+                <input id="ncStartAdr" type="number" min="1" max="254" value="1" />
+              </div>
+              <div class="rf-conf-field">
+                <label>Конечный сетевой адрес</label>
+                <input id="ncStopAdr" type="number" min="1" max="254" value="254" />
+              </div>
+            </div>
+
+            <div id="ncRfBox" class="rf-cfgnode-fields rf-nodescfg-params" style="display:none">
+              <div class="rf-conf-field rf-cfgnode-checks">
+                <label class="rf-check-label">
+                  <input id="ncUseKey" type="checkbox" onchange="document.getElementById('ncRfKey').disabled=!this.checked" />
+                  Использовать шифрование
+                </label>
+                <input id="ncRfKey" type="text" maxlength="8" value="00000000" disabled />
+              </div>
+              <div class="rf-conf-field">
+                <label>Переход на другую подсеть</label>
+                <input id="ncNetNum" type="number" min="0" max="49" value="0" />
+              </div>
+              <div class="rf-conf-field">
+                <label>Уровень мощности</label>
+                <input id="ncPa" type="number" min="0" max="10" value="10" />
+              </div>
+            </div>
+
+            <div class="rf-nodescfg-create">
+              <button type="button" class="btn-primary" onclick="ncBuildTasks()">Создать очередь действий</button>
+              <div class="rf-nodescfg-view" title="Ширина панелей: левая / обе / правая">
+                <label class="rf-check-label rf-nodescfg-view-btn">
+                  <input type="radio" name="ncView" value="tasks" onchange="ncSetView(this.value)" />
+                  <span>&lt;</span>
+                </label>
+                <label class="rf-check-label rf-nodescfg-view-btn">
+                  <input type="radio" name="ncView" value="both" checked onchange="ncSetView(this.value)" />
+                  <span>&lt;&gt;</span>
+                </label>
+                <label class="rf-check-label rf-nodescfg-view-btn">
+                  <input type="radio" name="ncView" value="nodes" onchange="ncSetView(this.value)" />
+                  <span>&gt;</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="rf-nodescfg-lists" id="ncLists">
+          <section class="rf-conf-section rf-nodescfg-list-panel" id="ncNodesPanel">
+            <div class="rf-conf-section-title">Список узлов</div>
+            <select id="ncNodeList" class="rf-nodescfg-select" multiple size="14"></select>
+            <div class="rf-nodescfg-hint">Для назначения адресов WM выберите узлы (Ctrl/Shift).</div>
+          </section>
+
+          <section class="rf-conf-section rf-nodescfg-list-panel" id="ncTasksPanel">
+            <div class="rf-conf-section-title">Очередь действий</div>
+            <ul id="ncTaskList" class="rf-nodescfg-tasklist"></ul>
+            <div id="ncResults" class="rf-nodescfg-results"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-findnetnum" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Поиск подсети (NetNum)</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="fnSearch()">Поиск</button>
+        </div>
+      </div>
+
+      <div class="rf-cfgnode-layout rf-findnetnum-layout">
+        <section class="rf-conf-section">
+          <div class="rf-conf-section-title">Параметры поиска</div>
+          <div class="rf-cfgnode-search-opts">
+            <div class="rf-cfgnode-search-row">
+              <label class="rf-check-label">
+                <input id="fnByRf" type="radio" name="fnFind" value="rf" checked onchange="fnToggleFind()" />
+                Адрес радиомодуля
+              </label>
+              <input id="fnRfAdr" type="number" min="0" max="65529" value="0" />
+            </div>
+            <div class="rf-cfgnode-search-row">
+              <label class="rf-check-label">
+                <input id="fnBySn" type="radio" name="fnFind" value="sn" onchange="fnToggleFind()" />
+                Заводской номер счётчика
+              </label>
+              <input id="fnSn" type="text" maxlength="8" placeholder="????????" value="????????" disabled />
+            </div>
+            <div class="rf-cfgnode-fields rf-findnetnum-range">
+              <div class="rf-conf-field">
+                <label>Начальная подсеть</label>
+                <input id="fnStart" type="number" min="0" max="49" value="1" />
+              </div>
+              <div class="rf-conf-field">
+                <label>Конечная подсеть</label>
+                <input id="fnStop" type="number" min="0" max="49" value="10" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="rf-conf-section rf-findnetnum-result">
+          <div class="rf-conf-section-title">Номер найденной подсети</div>
+          <div id="fnResultBox" class="rf-findnetnum-value is-empty" aria-live="polite">—</div>
+          <input id="fnResult" type="hidden" value="" />
+        </section>
+      </div>
+    </div>
+
+    <div id="panel-siglevels" class="rf-panel">
+      <div class="rf-conf-head">
+        <h3>Уровни сигнала</h3>
+        <div class="rf-conf-toolbar">
+          <button class="btn-primary" onclick="slRead()">Чтение</button>
+          <button type="button" class="btn-secondary" onclick="slSaveFile()">Сохранить в файл</button>
+        </div>
+      </div>
+
+      <div class="rf-cfgnode-layout rf-siglevels-layout">
+        <section class="rf-conf-section">
+          <div class="rf-conf-section-title">Диапазон узлов</div>
+          <div class="rf-cfgnode-fields rf-siglevels-range">
+            <div class="rf-conf-field">
+              <label>Начальный узел</label>
+              <input id="slStart" type="number" min="1" max="1024" value="1" />
+            </div>
+            <div class="rf-conf-field">
+              <label>Конечный узел</label>
+              <input id="slStop" type="number" min="1" max="1024" value="1" />
+            </div>
+          </div>
+        </section>
+
+        <section class="rf-conf-section rf-siglevels-list-section">
+          <div class="rf-conf-section-title">Уровни сигнала</div>
+          <ul id="slList" class="rf-siglevels-list">
+            <li class="rf-siglevels-empty">Нет данных — выполните чтение</li>
+          </ul>
+          <div id="slTable" class="rf-siglevels-table-wrap"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+<script>
+function setStatus(msg, kind) {
+  const el = document.getElementById('globalStatus');
+  el.textContent = msg;
+  el.className = 'status ' + (kind || 'info');
+}
+
+async function api(method, url, body) {
+  const opt = { method, credentials: 'same-origin', headers: {} };
+  if (body) {
+    opt.headers['Content-Type'] = 'application/json';
+    opt.body = JSON.stringify(body);
+  }
+  const r = await fetch(url, opt);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+function groupMaskToHex(mask) {
+  return (mask >>> 0).toString(16).toUpperCase().padStart(8, '0');
+}
+
+function parseGroupMaskHex() {
+  const raw = (document.getElementById('cfgGroup').value || '').trim();
+  const parsed = parseInt(raw, 16);
+  if (Number.isNaN(parsed)) return 0xFFFFFFFF >>> 0;
+  return parsed >>> 0;
+}
+
+function setGroupMaskValue(mask) {
+  const hex = groupMaskToHex(mask);
+  document.getElementById('cfgGroup').value = hex;
+  const display = document.getElementById('cfgGroupDisplay');
+  if (display) display.textContent = hex;
+  const modalHex = document.getElementById('cfgGroupModalHex');
+  if (modalHex) modalHex.textContent = hex;
+  updateGroupSummary(mask);
+}
+
+function formatGroupSummary(mask) {
+  const m = mask >>> 0;
+  if (m === 0xFFFFFFFF) return 'Все группы';
+  const groups = [];
+  for (let g = 1; g <= 32; g++) {
+    if ((m & (1 << (g - 1))) !== 0) groups.push(g);
+  }
+  if (!groups.length) return 'Группы не выбраны';
+  if (groups.length <= 8) return 'Гр. ' + groups.join(', ');
+  return 'Гр. ' + groups.slice(0, 8).join(', ') + '… (' + groups.length + ')';
+}
+
+function updateGroupSummary(mask) {
+  const el = document.getElementById('cfgGroupSummary');
+  if (!el) return;
+  const m = (mask === undefined) ? parseGroupMaskHex() : (mask >>> 0);
+  el.textContent = formatGroupSummary(m);
+}
+
+function syncGroupButtons(mask) {
+  const buttons = document.querySelectorAll('#cfgGroupPicker button[data-group]');
+  buttons.forEach((btn) => {
+    const group = parseInt(btn.dataset.group, 10);
+    const checked = (((mask >>> 0) & (1 << (group - 1))) !== 0);
+    btn.classList.toggle('is-on', checked);
+  });
+}
+
+function toggleGroup(group) {
+  let mask = parseGroupMaskHex();
+  const bit = (1 << (group - 1)) >>> 0;
+  if ((mask & bit) !== 0) mask = (mask & (~bit >>> 0)) >>> 0;
+  else mask = (mask | bit) >>> 0;
+  setGroupMaskValue(mask);
+  syncGroupButtons(mask);
+}
+
+function setGroupPreset(kind) {
+  let mask = 0;
+  if (kind === 'all') mask = 0xFFFFFFFF;
+  else if (kind === 'one') mask = 1;
+  setGroupMaskValue(mask);
+  syncGroupButtons(mask);
+}
+
+function openGroupModal() {
+  const modal = document.getElementById('cfgGroupModal');
+  if (!modal) return;
+  syncGroupButtons(parseGroupMaskHex());
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeGroupModal() {
+  const modal = document.getElementById('cfgGroupModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  updateGroupSummary();
+}
+
+function initGroupPicker() {
+  const box = document.getElementById('cfgGroupPicker');
+  if (!box || box.childElementCount) return;
+  for (let g = 1; g <= 32; g++) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = String(g);
+    btn.dataset.group = String(g);
+    btn.onclick = () => toggleGroup(g);
+    box.appendChild(btn);
+  }
+  setGroupMaskValue(parseGroupMaskHex());
+  syncGroupButtons(parseGroupMaskHex());
+}
+
+async function rfConnect() {
+  try {
+    const d = await api('POST', '/api/rf/connection', {
+      host: (document.getElementById('rfHost') || {}).value || '',
+      port: parseInt((document.getElementById('rfPort') || {}).value, 10) || 10001,
+      write_key: parseInt((document.getElementById('rfWriteKey') || {}).value, 10) || 16,
+      clear_key: parseInt((document.getElementById('rfClearKey') || {}).value, 10) || 30,
+    });
+    const host = (d && d.host) || (document.getElementById('rfHost') || {}).value || '';
+    setStatus('Подключено к ' + host, 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfDisconnect() {
+  try {
+    await api('DELETE', '/api/rf/connection');
+    setStatus('Отключено', 'info');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfReadConfig() {
+  try {
+    const c = await api('GET', '/api/rf/config');
+    document.getElementById('cfgSoftVer').value = c.soft_ver_str || '';
+    document.getElementById('cfgSerial').value = c.serial || '';
+    document.getElementById('cfgDevType').value = c.dev_type || '';
+    document.getElementById('cfgBaud').value = c.port_cfg?.baudrate || '';
+    document.getElementById('cfgParity').value = c.port_cfg?.parity ?? '';
+    document.getElementById('cfgStop').value = c.port_cfg?.num_stop ?? '';
+    document.getElementById('cfgNetAdr').value = c.host_prm?.net_adr ?? 0;
+    document.getElementById('cfgNetNum').value = c.host_prm?.net_num ?? '';
+    document.getElementById('cfgPaLevel').value = c.host_prm?.pa_rf_level ?? '';
+    document.getElementById('cfgHostSoftVer').value = c.host_prm?.soft_ver_str || '';
+    document.getElementById('cfgModID').value = (c.host_prm?.mod_id || 0).toString(16).toUpperCase().padStart(8,'0');
+    setGroupMaskValue(parseInt(c.group_mask_hex || 'FFFFFFFF', 16) >>> 0);
+    syncGroupButtons(parseGroupMaskHex());
+    document.getElementById('cfgMac').value = c.mac_addr_hex || '';
+    setStatus('Конфигурация прочитана', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfWriteConfig() {
+  try {
+    const modId = parseInt(document.getElementById('cfgModID').value, 16) || 0;
+    await api('PUT', '/api/rf/config', {
+      rf_key_hex: document.getElementById('cfgRfKey').value,
+      config: {
+        soft_ver: 0,
+        port_cfg: {
+          baudrate: parseInt(document.getElementById('cfgBaud').value, 10) || 0,
+          parity: parseInt(document.getElementById('cfgParity').value, 10) || 0,
+          num_stop: parseInt(document.getElementById('cfgStop').value, 10) || 1,
+        },
+        host_prm: {
+          mod_id: modId,
+          net_num: parseInt(document.getElementById('cfgNetNum').value, 10) || 0,
+          pa_rf_level: parseInt(document.getElementById('cfgPaLevel').value, 10) || 0,
+        },
+        group_mask_hex: document.getElementById('cfgGroup').value,
+      },
+    });
+    setStatus('Конфигурация записана', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+let rfNodes = [];
+const RF_NODES_GROUP_COUNT = 32;
+const rfNodesSelected = {};
+let rfNodesLastClicked = null;
+let rfNodesDragActive = false;
+let rfNodesDragSetTo = true;
+
+document.addEventListener('mouseup', function () {
+  rfNodesDragActive = false;
+});
+
+function formatRfNodeSoftVer(sv) {
+  sv = sv || 0;
+  const v = ((sv & 0xff) + 100) / 100;
+  let s = v.toFixed(2);
+  if (sv & 0x8000) s += 'K';
+  if (sv & 0x4000) s += 'R';
+  if (sv & 0x2000) s += 'L';
+  return s;
+}
+
+function rfNodeGroupMaskHex(mask) {
+  return (mask >>> 0).toString(16).toUpperCase().padStart(8, '0');
+}
+
+function rfNodeGroupsFromMask(mask) {
+  const out = [];
+  for (let g = 1; g <= RF_NODES_GROUP_COUNT; g++) {
+    if ((mask >>> 0) & (1 << (g - 1))) out.push(g);
+  }
+  return out;
+}
+
+function formatRfNodeGroups(mask) {
+  const m = mask >>> 0;
+  if (m === 0) return '—';
+  if (m === 0xffffffff) return '1–32';
+  const gs = rfNodeGroupsFromMask(m);
+  if (gs.length === 1) return String(gs[0]);
+  if (gs.length <= 4) return gs.join('+');
+  return gs.slice(0, 3).join('+') + '… (' + gs.length + ')';
+}
+
+function rfNodeGroupMaskFromNumbers(nums) {
+  let mask = 0;
+  nums.forEach(function (g) {
+    if (g >= 1 && g <= RF_NODES_GROUP_COUNT) mask |= (1 << (g - 1));
+  });
+  return mask >>> 0;
+}
+
+function selectedRfNodeIndexes() {
+  return Object.keys(rfNodesSelected)
+    .filter(function (k) { return rfNodesSelected[k]; })
+    .map(function (k) { return parseInt(k, 10); })
+    .filter(function (n) { return !isNaN(n); });
+}
+
+function updateNodesSelCount() {
+  /* selection count UI removed; drag-select in table */
+}
+
+function updateNodesStats() {
+  const el = document.getElementById('nodesStats');
+  if (!el) return;
+  if (!rfNodes.length) {
+    el.textContent = '';
+    return;
+  }
+  let epCnt = 0;
+  rfNodes.forEach(function (n) { if (n.idx_ep > 0) epCnt++; });
+  el.textContent = 'Всего узлов: ' + rfNodes.length + ', конечных точек: ' + epCnt;
+}
+
+function updateNodesGroupsModalHex(mask) {
+  const hex = rfNodeGroupMaskHex(mask);
+  const el = document.getElementById('nodesGroupModalHex');
+  if (el) el.textContent = hex;
+}
+
+function syncNodesGroupPicker(mask) {
+  const m = mask >>> 0;
+  document.querySelectorAll('#nodesGroupPicker button[data-group]').forEach(function (btn) {
+    const group = parseInt(btn.dataset.group, 10);
+    const on = ((m & (1 << (group - 1))) !== 0);
+    btn.classList.toggle('is-on', on);
+  });
+  updateNodesGroupsModalHex(m);
+}
+
+function toggleNodesGroup(group) {
+  let mask = parseInt(document.getElementById('nodesGroupModalHex').textContent, 16);
+  if (isNaN(mask)) mask = 0xffffffff;
+  const bit = (1 << (group - 1)) >>> 0;
+  if ((mask & bit) !== 0) mask = (mask & (~bit >>> 0)) >>> 0;
+  else mask = (mask | bit) >>> 0;
+  syncNodesGroupPicker(mask);
+}
+
+function setNodesGroupPreset(kind) {
+  let mask = 0;
+  if (kind === 'all') mask = 0xffffffff;
+  else if (kind === 'one') mask = 1;
+  syncNodesGroupPicker(mask);
+}
+
+function initNodesGroupPicker() {
+  const box = document.getElementById('nodesGroupPicker');
+  if (!box || box.childElementCount) return;
+  for (let g = 1; g <= RF_NODES_GROUP_COUNT; g++) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = String(g);
+    btn.dataset.group = String(g);
+    btn.onclick = function () { toggleNodesGroup(g); };
+    box.appendChild(btn);
+  }
+  syncNodesGroupPicker(0xffffffff);
+}
+
+function openNodesGroupModal() {
+  const idxs = selectedRfNodeIndexes();
+  if (!idxs.length) { alert('Выделите узлы'); return; }
+  syncNodesFromTable();
+  let seedMask = null;
+  idxs.forEach(function (idx) {
+    const n = rfNodes.find(function (node) { return node.index === idx; });
+    if (!n) return;
+    const gm = (n.group_mask != null ? n.group_mask : 0xffffffff) >>> 0;
+    if (seedMask === null) seedMask = gm;
+    else if (seedMask !== gm) seedMask = 0;
+  });
+  if (seedMask === null) seedMask = 0xffffffff;
+  syncNodesGroupPicker(seedMask);
+  const hint = document.getElementById('nodesGroupModalHint');
+  if (hint) {
+    hint.textContent = 'Выбрано узлов: ' + idxs.length +
+      (seedMask === 0 ? ' (у выделенных разные группы — задайте новые)' : '');
+  }
+  const modal = document.getElementById('nodesGroupModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeNodesGroupModal() {
+  const modal = document.getElementById('nodesGroupModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function applyNodesGroupFromModal(mode) {
+  const idxs = selectedRfNodeIndexes();
+  if (!idxs.length) { alert('Выделите узлы'); return; }
+  const mask = parseInt(document.getElementById('nodesGroupModalHex').textContent, 16);
+  if (isNaN(mask) || mask === 0) { alert('Выберите хотя бы одну RF-группу (1–32)'); return; }
+  syncNodesFromTable();
+  const remove = {};
+  idxs.forEach(function (i) { remove[i] = true; });
+  rfNodes.forEach(function (n) {
+    if (!remove[n.index]) return;
+    if (mode === 'add') {
+      n.group_mask = ((n.group_mask >>> 0) | (mask >>> 0)) >>> 0;
+    } else {
+      n.group_mask = mask >>> 0;
+    }
+  });
+  closeNodesGroupModal();
+  renderNodesTable();
+}
+
+function renderNodesTable() {
+  const el = document.getElementById('nodesTable');
+  if (!el) return;
+  if (!rfNodes.length) {
+    el.innerHTML = '<p class="muted">Узлов нет — нажмите «Чтение»</p>';
+    updateNodesStats();
+    updateNodesSelCount();
+    return;
+  }
+  let html = '<table><thead><tr>';
+  html += '<th><input type="checkbox" id="nodesCheckAll" title="Выделить все" /></th>';
+  html += '<th>#</th><th>NetAdr</th><th>ID (hex)</th><th>Версия ПО</th>';
+  html += '<th>MainRef</th><th>AdditRef</th><th>EP</th><th>Группы</th>';
+  html += '</tr></thead><tbody>';
+  rfNodes.forEach(function (n, i) {
+    const idx = n.index || (i + 1);
+    const sel = !!rfNodesSelected[idx];
+    const gm = (n.group_mask != null ? n.group_mask : 0xffffffff) >>> 0;
+    html += '<tr class="rf-nodes-row' + (sel ? ' rf-nodes-row-selected' : '') + '" data-idx="' + i + '" data-node="' + idx + '">';
+    html += '<td><input type="checkbox" class="rf-nodes-row-check" data-node="' + idx + '"' + (sel ? ' checked' : '') + ' /></td>';
+    html += '<td>' + idx + '</td>';
+    html += '<td><input type="number" class="nd-net" value="' + n.net_adr + '" min="0" max="65535" /></td>';
+    html += '<td><input type="text" class="nd-id" value="' + (n.id_hex || '') + '" maxlength="8" /></td>';
+    html += '<td><input type="text" class="nd-sv" value="' + formatRfNodeSoftVer(n.soft_ver) + '" disabled /></td>';
+    html += '<td><input type="number" class="nd-main" value="' + n.main_ref + '" /></td>';
+    html += '<td><input type="number" class="nd-add" value="' + n.addit_ref + '" /></td>';
+    html += '<td><input type="text" class="nd-ep" value="' + (n.idx_ep || 0) + '" disabled /></td>';
+    html += '<td class="nd-grp-text" title="' + rfNodeGroupMaskHex(gm) + '">' + formatRfNodeGroups(gm) + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+
+  function isNodeSelected(nodeIdx) {
+    return !!rfNodesSelected[nodeIdx];
+  }
+
+  function setNodeSelected(nodeIdx, selected) {
+    if (selected) rfNodesSelected[nodeIdx] = true;
+    else delete rfNodesSelected[nodeIdx];
+    const row = el.querySelector('tr[data-node="' + nodeIdx + '"]');
+    if (row) row.classList.toggle('rf-nodes-row-selected', selected);
+    const cb = row && row.querySelector('.rf-nodes-row-check');
+    if (cb) cb.checked = selected;
+  }
+
+  function setSelectedRange(a, b, selected) {
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    rfNodes.forEach(function (n) {
+      const idx = n.index;
+      if (idx >= lo && idx <= hi) setNodeSelected(idx, selected);
+    });
+    updateNodesSelCount();
+  }
+
+  const checkAll = document.getElementById('nodesCheckAll');
+  if (checkAll) {
+    checkAll.addEventListener('change', function () {
+      if (checkAll.checked) rfNodesSelectAll();
+      else rfNodesClearSelection();
+    });
+  }
+  el.querySelectorAll('.rf-nodes-row-check').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      const nodeIdx = parseInt(cb.dataset.node, 10);
+      setNodeSelected(nodeIdx, cb.checked);
+      rfNodesLastClicked = nodeIdx;
+      updateNodesSelCount();
+    });
+  });
+  el.querySelectorAll('tbody tr[data-node]').forEach(function (row) {
+    row.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      const nodeIdx = parseInt(row.dataset.node, 10);
+      if (isNaN(nodeIdx)) return;
+
+      const isCheckbox = e.target && e.target.classList && e.target.classList.contains('rf-nodes-row-check');
+      const isEditableInput = e.target && e.target.tagName === 'INPUT' && !e.target.disabled && !isCheckbox;
+      if (isEditableInput) return;
+
+      if (!isCheckbox) e.preventDefault();
+
+      const last = rfNodesLastClicked;
+      if (e.shiftKey && last != null) {
+        setSelectedRange(last, nodeIdx, true);
+        rfNodesDragSetTo = true;
+      } else {
+        const next = !isNodeSelected(nodeIdx);
+        setNodeSelected(nodeIdx, next);
+        rfNodesDragSetTo = next;
+      }
+      rfNodesLastClicked = nodeIdx;
+      rfNodesDragActive = true;
+      updateNodesSelCount();
+    });
+
+    row.addEventListener('mouseover', function (e) {
+      if (!rfNodesDragActive) return;
+      if (e.buttons !== 1) return;
+      const nodeIdx = parseInt(row.dataset.node, 10);
+      if (isNaN(nodeIdx)) return;
+      setNodeSelected(nodeIdx, rfNodesDragSetTo);
+      updateNodesSelCount();
+    });
+  });
+  updateNodesStats();
+  updateNodesSelCount();
+}
+
+function syncNodesFromTable() {
+  const rows = document.querySelectorAll('#nodesTable tr[data-idx]');
+  rows.forEach(function (row) {
+    const i = parseInt(row.dataset.idx, 10);
+    if (isNaN(i) || !rfNodes[i]) return;
+    const n = rfNodes[i];
+    n.net_adr = parseInt(row.querySelector('.nd-net').value, 10) || 0;
+    n.id_hex = row.querySelector('.nd-id').value.trim().toUpperCase();
+    n.main_ref = parseInt(row.querySelector('.nd-main').value, 10);
+    n.addit_ref = parseInt(row.querySelector('.nd-add').value, 10);
+    if (isNaN(n.main_ref)) n.main_ref = -1;
+    if (isNaN(n.addit_ref)) n.addit_ref = -1;
+    const id = parseInt(n.id_hex, 16);
+    if (!isNaN(id)) n.id = id >>> 0;
+  });
+}
+
+function collectNodesFromTable() {
+  syncNodesFromTable();
+  return rfNodes.map(function (n, i) {
+    const gm = (n.group_mask != null ? n.group_mask : 0xffffffff) >>> 0;
+    return {
+      index: n.index || (i + 1),
+      net_adr: n.net_adr,
+      id_hex: n.id_hex || '',
+      soft_ver: n.soft_ver || 0,
+      main_ref: n.main_ref,
+      addit_ref: n.addit_ref,
+      idx_ep: n.idx_ep || 0,
+      group_mask: gm,
+    };
+  });
+}
+
+function rfNodesSelectAll() {
+  rfNodes.forEach(function (n) { rfNodesSelected[n.index] = true; });
+  renderNodesTable();
+}
+
+function rfNodesClearSelection() {
+  Object.keys(rfNodesSelected).forEach(function (k) { delete rfNodesSelected[k]; });
+  renderNodesTable();
+}
+
+function rfNodesDeleteSelected() {
+  const idxs = selectedRfNodeIndexes();
+  if (!idxs.length) { alert('Выделите узлы для удаления'); return; }
+  if (!confirm('Удалить выбранные узлы (' + idxs.length + ') из списка?')) return;
+  syncNodesFromTable();
+  const remove = {};
+  idxs.forEach(function (i) { remove[i] = true; });
+  rfNodes = rfNodes.filter(function (n) { return !remove[n.index]; });
+  rfNodes.forEach(function (n, i) { n.index = i + 1; });
+  Object.keys(rfNodesSelected).forEach(function (k) { delete rfNodesSelected[k]; });
+  renderNodesTable();
+}
+
+async function rfReadNodes() {
+  try {
+    const d = await api('GET', '/api/rf/nodes');
+    rfNodes = (d.nodes || []).map(function (n, i) {
+      return Object.assign({}, n, {
+        index: n.index || (i + 1),
+        group_mask: (n.group_mask != null ? n.group_mask : 0xffffffff) >>> 0,
+      });
+    });
+    Object.keys(rfNodesSelected).forEach(function (k) { delete rfNodesSelected[k]; });
+    renderNodesTable();
+    setStatus('Прочитано узлов: ' + rfNodes.length, 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfWriteNodes() {
+  try {
+    const nodes = collectNodesFromTable();
+    if (!nodes.length) throw new Error('нет узлов для записи');
+    if (!confirm('Записать ' + nodes.length + ' узлов в маршрутизатор?')) return;
+    await api('PUT', '/api/rf/nodes', { nodes });
+    setStatus('Записано узлов: ' + nodes.length, 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfClearNodes() {
+  try {
+    if (!confirm('Стереть все узлы в маршрутизаторе?')) return;
+    await api('DELETE', '/api/rf/nodes');
+    rfNodes = [];
+    Object.keys(rfNodesSelected).forEach(function (k) { delete rfNodesSelected[k]; });
+    renderNodesTable();
+    setStatus('Список узлов очищен', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfReadTransit() {
+  try {
+    const c = await api('GET', '/api/rf/transit');
+    document.getElementById('trMode').value = c.transit_mode ?? 0;
+    document.getElementById('trMinRssi').value = c.min_rssi ?? 0;
+    document.getElementById('trPow').value = c.power_level ?? 0;
+    document.getElementById('trFreeRf').value = c.free_rf ?? 0;
+    document.getElementById('trAck').checked = !!c.use_ack;
+    setStatus('Режим работы прочитан', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfWriteTransit() {
+  try {
+    await api('PUT', '/api/rf/transit', {
+      transit_mode: parseInt(document.getElementById('trMode').value, 10) || 0,
+      min_rssi: parseInt(document.getElementById('trMinRssi').value, 10) || 0,
+      power_level: parseInt(document.getElementById('trPow').value, 10) || 0,
+      free_rf: parseInt(document.getElementById('trFreeRf').value, 10) || 0,
+      use_ack: document.getElementById('trAck').checked,
+    });
+    setStatus('Режим работы записан', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+let rfEndpoints = [];
+let rfEpNodes = [];
+let rfNetRFsNodes = [];
+let epSelected = new Set();
+
+function fillEpNodeSelect() {
+  const sel = document.getElementById('epNodeSelect');
+  sel.innerHTML = '<option value="0">NULL (0)</option>';
+  rfEpNodes.forEach(n => {
+    const o = document.createElement('option');
+    o.value = n.index;
+    o.textContent = n.index + ' — NetAdr ' + n.net_adr + ' ID ' + (n.id_hex || '');
+    sel.appendChild(o);
+  });
+}
+
+function parseEpFilter() {
+  const f = document.getElementById('epFilter').value.trim();
+  if (!f) return null;
+  const set = new Set();
+  f.split(',').forEach(part => {
+    part = part.trim();
+    if (part.includes('-')) {
+      const [a, b] = part.split('-').map(x => parseInt(x.trim(), 10));
+      for (let i = a; i <= b; i++) set.add(i);
+    } else if (part) set.add(parseInt(part, 10));
+  });
+  return set;
+}
+
+function renderEndpointsTable() {
+  const filt = parseEpFilter();
+  let html = '<table><tr><th></th><th>EP</th><th>NodeIdx</th></tr>';
+  rfEndpoints.forEach(ep => {
+    if (filt && !filt.has(ep.ep)) return;
+    const chk = epSelected.has(ep.ep) ? 'checked' : '';
+    html += '<tr><td><input type="checkbox" data-ep="' + ep.ep + '" ' + chk + ' onchange="epToggle(' + ep.ep + ', this.checked)" /></td>';
+    html += '<td>' + ep.ep + '</td>';
+    html += '<td><input type="number" class="ep-node" data-ep="' + ep.ep + '" value="' + ep.node_idx + '" min="0" max="255" style="width:70px" /></td></tr>';
+  });
+  html += '</table>';
+  document.getElementById('epTable').innerHTML = html || '<p>Нет данных</p>';
+}
+
+function epToggle(ep, on) {
+  if (on) epSelected.add(ep); else epSelected.delete(ep);
+}
+
+function epLinkSelected() {
+  const nodeIdx = parseInt(document.getElementById('epNodeSelect').value, 10) || 0;
+  if (!epSelected.size) { setStatus('Выберите EP', 'err'); return; }
+  epSelected.forEach(ep => {
+    const inp = document.querySelector('.ep-node[data-ep="' + ep + '"]');
+    if (inp) inp.value = nodeIdx;
+  });
+  setStatus('Привязано EP: ' + epSelected.size + ' → узел ' + nodeIdx, 'ok');
+}
+
+function collectEndpoints() {
+  const map = new Map(rfEndpoints.map(e => [e.ep, e.node_idx]));
+  document.querySelectorAll('.ep-node').forEach(inp => {
+    map.set(parseInt(inp.dataset.ep, 10), parseInt(inp.value, 10) || 0);
+  });
+  const eps = [];
+  map.forEach((node_idx, ep) => eps.push({ ep, node_idx }));
+  eps.sort((a, b) => a.ep - b.ep);
+  return eps;
+}
+
+async function rfReadEndpoints() {
+  try {
+    const d = await api('GET', '/api/rf/endpoints');
+    rfEndpoints = d.endpoints || [];
+    rfEpNodes = d.nodes || [];
+    epSelected = new Set();
+    fillEpNodeSelect();
+    renderEndpointsTable();
+    setStatus('Прочитано EP: ' + rfEndpoints.length + ', узлов: ' + rfEpNodes.length, 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfWriteEndpoints() {
+  try {
+    if (!confirm('Записать таблицу конечных точек?')) return;
+    await api('PUT', '/api/rf/endpoints', { endpoints: collectEndpoints() });
+    setStatus('Конечные точки записаны', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+function updateNetRFsFoundCount() {
+  const el = document.getElementById('rfsFoundCount');
+  if (!el) return;
+  el.textContent = rfNetRFsNodes.length ? ('в списке: ' + rfNetRFsNodes.length) : '';
+}
+
+function renderNetRFsTable() {
+  const el = document.getElementById('netrfsTable');
+  if (!el) return;
+  updateNetRFsFoundCount();
+  if (!rfNetRFsNodes.length) {
+    el.innerHTML = '<p class="muted">Нажмите «Поиск RFs»</p>';
+    const selAll = document.getElementById('rfsSelectAll');
+    if (selAll) selAll.checked = false;
+    return;
+  }
+  let html = '<table><thead><tr>';
+  html += '<th></th><th>#</th><th>NetAdr</th><th>ID</th><th>MainRef</th><th>AdditRef</th><th>Маршрут</th>';
+  html += '</tr></thead><tbody>';
+  rfNetRFsNodes.forEach((n, i) => {
+    const checked = n.selected == null ? !!n.is_main : !!n.selected;
+    n.selected = checked;
+    const route = n.is_main ? 'основной' : 'доп.';
+    html += '<tr data-idx="' + i + '">';
+    html += '<td><input type="checkbox" class="rfs-row-check" data-idx="' + i + '"' + (checked ? ' checked' : '') + ' /></td>';
+    html += '<td>' + (n.index || (i + 1)) + '</td>';
+    html += '<td>' + n.net_adr + '</td><td>' + (n.id_hex || '') + '</td>';
+    html += '<td>' + n.main_ref + '</td><td>' + n.addit_ref + '</td><td>' + route + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+  el.querySelectorAll('.rfs-row-check').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      const idx = parseInt(cb.dataset.idx, 10);
+      if (!isNaN(idx) && rfNetRFsNodes[idx]) rfNetRFsNodes[idx].selected = cb.checked;
+      const all = rfNetRFsNodes.length > 0 && rfNetRFsNodes.every(function (n) { return !!n.selected; });
+      const selAll = document.getElementById('rfsSelectAll');
+      if (selAll) selAll.checked = all;
+    });
+  });
+  const selAll = document.getElementById('rfsSelectAll');
+  if (selAll) {
+    selAll.checked = rfNetRFsNodes.length > 0 && rfNetRFsNodes.every(function (n) { return !!n.selected; });
+  }
+}
+
+function rfNetRFsSelectAll(on) {
+  rfNetRFsNodes.forEach(function (n) { n.selected = !!on; });
+  renderNetRFsTable();
+}
+
+function rfNetRFsClearList() {
+  rfNetRFsNodes = [];
+  renderNetRFsTable();
+  setStatus('Список найденных узлов очищен', 'info');
+}
+
+async function rfDiscoverNet() {
+  try {
+    setStatus('Поиск сети RFs… подождите', 'info');
+    const d = await api('POST', '/api/rf/netrfs', {
+      max_nodes: parseInt(document.getElementById('rfsMax').value, 10) || 1023,
+      reg_window: parseInt(document.getElementById('rfsRegWin').value, 10) || 0,
+      reg_timeout: parseInt(document.getElementById('rfsRegTm').value, 10) || 3600,
+      clear_reg: document.getElementById('rfsClrReg').checked,
+    });
+    rfNetRFsNodes = (d.nodes || []).map(function (n) {
+      return Object.assign({}, n, { selected: !!n.is_main });
+    });
+    renderNetRFsTable();
+    setStatus('Найдено узлов: ' + rfNetRFsNodes.length + ' (min RSSI ' + d.min_rssi + ' dBm)', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfWriteNetRFs() {
+  try {
+    if (!rfNetRFsNodes.length) throw new Error('сначала выполните поиск');
+    if (!confirm('Записать ' + rfNetRFsNodes.length + ' узлов в маршрутизатор?')) return;
+    const nodes = rfNetRFsNodes.map(n => ({
+      index: n.index, net_adr: n.net_adr, id_hex: n.id_hex, id: n.id,
+      soft_ver: n.soft_ver, main_ref: n.main_ref, addit_ref: n.addit_ref,
+      idx_ep: n.idx_ep || 0, group_mask: n.group_mask || 0xffffffff,
+    }));
+    await api('PUT', '/api/rf/netrfs', { nodes });
+    setStatus('Список узлов записан в маршрутизатор', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function rfClearNetReg() {
+  try {
+    await api('DELETE', '/api/rf/netrfs');
+    setStatus('Регистрация отключена на найденных узлах', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+let cfgNodeData = null;
+
+function cfgToggleFind() {
+  const bySn = document.getElementById('cfgBySn').checked;
+  const byRf = document.getElementById('cfgByRf').checked;
+  document.getElementById('cfgSn').disabled = !bySn;
+  document.getElementById('cfgRfAdr').disabled = !byRf;
+  const exact = document.getElementById('cfgRfExact');
+  if (exact) {
+    exact.disabled = !byRf;
+    exact.checked = byRf;
+  }
+}
+
+function cfgToggleSnEdit() {
+  const on = document.getElementById('cfgChgSn').checked;
+  document.getElementById('cfgWNewSn').disabled = !on;
+  document.getElementById('cfgWNetAdr').disabled = on;
+  document.getElementById('cfgWNetNum').disabled = on;
+  document.getElementById('cfgWPa').disabled = on;
+  document.getElementById('cfgWUseKey').disabled = on;
+  document.getElementById('cfgWRfKey').disabled = on || !document.getElementById('cfgWUseKey').checked;
+  document.getElementById('cfgSetWm').disabled = on;
+}
+
+function cfgFillFromRead(d) {
+  cfgNodeData = d;
+  const h = d.host_prm || {};
+  document.getElementById('cfgRNetAdr').value = h.net_adr ?? '';
+  document.getElementById('cfgRSn').value = d.mod_id_hex || '';
+  document.getElementById('cfgRNetNum').value = h.net_num ?? '';
+  document.getElementById('cfgRSoftVer').value = d.soft_ver_str || '';
+  document.getElementById('cfgRPa').value = h.pa_rf_level ?? '';
+  document.getElementById('cfgRKey').value = (h.rf_use_key ? 'Вкл' : 'Выкл');
+  document.getElementById('cfgWNetAdr').value = h.net_adr ?? '';
+  document.getElementById('cfgWNetNum').value = h.net_num ?? '';
+  document.getElementById('cfgWPa').value = h.pa_rf_level ?? '';
+  document.getElementById('cfgWRk').checked = (h.soft_ver & 0x8000) !== 0;
+  document.getElementById('cfgWRr').checked = (h.soft_ver & 0x4000) !== 0;
+  document.getElementById('cfgWUseKey').checked = !!h.rf_use_key;
+  document.getElementById('cfgWRfKey').disabled = !h.rf_use_key;
+  document.getElementById('cfgWNewSn').value = d.mod_id_hex || '';
+  document.getElementById('cfgDlmsBox').style.display = d.is_dlms ? 'block' : 'none';
+  if (d.is_dlms) document.getElementById('cfgHdlc').value = d.hdlc_adr || 0;
+}
+
+function cfgApplyHdlc() {
+  const hdlc = parseInt(document.getElementById('cfgHdlc').value, 10) || 0;
+  let sn = parseInt(document.getElementById('cfgWNewSn').value || document.getElementById('cfgRSn').value, 16) || 0;
+  sn = (sn & 0xFFFF0000) | (hdlc & 0xFFFF);
+  document.getElementById('cfgWNewSn').value = sn.toString(16).toUpperCase().padStart(8, '0');
+}
+
+async function cfgFindNode() {
+  try {
+    setStatus('Поиск узла…', 'info');
+    const bySn = document.getElementById('cfgBySn').checked;
+    const byRf = document.getElementById('cfgByRf').checked;
+    let body;
+    if (bySn) {
+      body = { by_sn: true, sn: document.getElementById('cfgSn').value.trim() };
+    } else if (byRf) {
+      body = {
+        by_rf_adr: true,
+        rf_adr: parseInt(document.getElementById('cfgRfAdr').value, 10) || 0,
+      };
+    } else {
+      body = { by_rf_adr: false, rf_adr: 0xFFFF };
+    }
+    const d = await api('POST', '/api/rf/cfg-node', body);
+    cfgFillFromRead(d);
+    setStatus('Узел найден: ' + (d.mod_id_hex || ''), 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function cfgWriteNode() {
+  try {
+    if (!cfgNodeData) throw new Error('сначала найдите узел');
+    if (!confirm('Записать параметры RF-узла?')) return;
+    const params = {
+      net_adr: parseInt(document.getElementById('cfgWNetAdr').value, 10) || 0,
+      net_num: parseInt(document.getElementById('cfgWNetNum').value, 10) || 0,
+      pa_rf_level: parseInt(document.getElementById('cfgWPa').value, 10) || 0,
+      rf_use_key: document.getElementById('cfgWUseKey').checked ? 1 : 0,
+      mod_id: parseInt(document.getElementById('cfgRSn').value, 16) || 0,
+    };
+    await api('PUT', '/api/rf/cfg-node', {
+      params,
+      rf_key: document.getElementById('cfgWRfKey').value,
+      change_sn: document.getElementById('cfgChgSn').checked,
+      new_sn_hex: document.getElementById('cfgWNewSn').value.trim(),
+      flag_rk: document.getElementById('cfgWRk').checked,
+      flag_rr: document.getElementById('cfgWRr').checked,
+      set_wm: document.getElementById('cfgSetWm').checked,
+      wm_net_adr: parseInt(document.getElementById('cfgWmAdr').value, 10) || 0,
+    });
+    if (!document.getElementById('cfgChgSn').checked && document.getElementById('cfgRfAutoInc').checked) {
+      const el = document.getElementById('cfgWNetAdr');
+      let next = (parseInt(el.value, 10) || 0) + 1;
+      if (next > 65529) next = 1;
+      el.value = next;
+    }
+    if (document.getElementById('cfgSetWm').checked && document.getElementById('cfgWmAutoInc').checked) {
+      const el = document.getElementById('cfgWmAdr');
+      let next = (parseInt(el.value, 10) || 0) + 1;
+      if (next > 254) next = 1;
+      el.value = next;
+    }
+    setStatus('Параметры записаны', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+cfgToggleFind();
+
+let fmLast = null;
+let ncData = { nodes: [], tasks: [], soft_ver: 0, free_rf_koef: 0 };
+
+function fmToggleFind() {
+  const bySn = document.getElementById('fmBySn').checked;
+  const byRf = document.getElementById('fmByRf').checked;
+  document.getElementById('fmSn').disabled = !bySn;
+  document.getElementById('fmRfAdr').disabled = !byRf;
+  const exact = document.getElementById('fmRfExact');
+  if (exact) {
+    exact.disabled = !byRf;
+    exact.checked = byRf;
+  }
+}
+
+function fmFill(d) {
+  fmLast = d;
+  const h = d.host_prm || {};
+  document.getElementById('fmRNetAdr').value = h.net_adr ?? '';
+  document.getElementById('fmModId').value = d.mod_id_hex || '';
+  document.getElementById('fmNetNum').value = h.net_num ?? '';
+  document.getElementById('fmSoftVer').value = d.soft_ver_str || '';
+  document.getElementById('fmWmType').value = d.wm_type || '';
+  document.getElementById('fmWmSn').value = d.wm_serial || '';
+  document.getElementById('fmAttempts').value = d.attempts ?? '';
+}
+
+async function fmSearch() {
+  try {
+    setStatus('Поиск счётчика…', 'info');
+    const bySn = document.getElementById('fmBySn').checked;
+    const byRf = document.getElementById('fmByRf').checked;
+    const body = {
+      max_attempts: parseInt(document.getElementById('fmMax').value, 10) || 100,
+    };
+    if (bySn) {
+      body.by_sn = true;
+      body.sn = document.getElementById('fmSn').value.trim();
+    } else if (byRf) {
+      body.by_rf_adr = true;
+      body.rf_adr = parseInt(document.getElementById('fmRfAdr').value, 10) || 0;
+    } else {
+      body.by_rf_adr = false;
+      body.rf_adr = 0xFFFF;
+    }
+    const d = await api('POST', '/api/rf/find-meter', body);
+    if (!d.found) throw new Error('счётчик не найден');
+    fmFill(d);
+    setStatus('Счётчик найден: ' + (d.wm_serial || d.mod_id_hex || ''), 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function fmConnect() {
+  try {
+    const netAdr = fmLast && fmLast.host_prm ? fmLast.host_prm.net_adr : 0;
+    await api('PUT', '/api/rf/find-meter', { net_adr: netAdr });
+    setStatus('Транзит подключён к NetAdr ' + netAdr, 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function fmDisconnect() {
+  try {
+    await api('DELETE', '/api/rf/find-meter');
+    setStatus('Транзит отключён', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+function fnToggleFind() {
+  const bySn = document.getElementById('fnBySn').checked;
+  document.getElementById('fnSn').disabled = !bySn;
+  document.getElementById('fnRfAdr').disabled = bySn;
+}
+
+function fnShowResult(netNum, found) {
+  const box = document.getElementById('fnResultBox');
+  const hidden = document.getElementById('fnResult');
+  if (found) {
+    box.textContent = String(netNum);
+    box.classList.remove('is-empty');
+    hidden.value = String(netNum);
+  } else {
+    box.textContent = '—';
+    box.classList.add('is-empty');
+    hidden.value = '';
+  }
+}
+
+async function fnSearch() {
+  try {
+    setStatus('Поиск подсети… подождите', 'info');
+    fnShowResult(null, false);
+    const bySn = document.getElementById('fnBySn').checked;
+    const body = {
+      start_net: parseInt(document.getElementById('fnStart').value, 10) || 0,
+      stop_net: parseInt(document.getElementById('fnStop').value, 10) || 0,
+    };
+    if (bySn) {
+      body.by_sn = true;
+      body.sn = document.getElementById('fnSn').value.trim();
+    } else {
+      body.by_rf_adr = true;
+      body.rf_adr = parseInt(document.getElementById('fnRfAdr').value, 10) || 0;
+    }
+    const d = await api('POST', '/api/rf/find-netnum', body);
+    if (d.found) {
+      fnShowResult(d.net_num, true);
+      setStatus('Найден NetNum: ' + d.net_num, 'ok');
+    } else {
+      fnShowResult(null, false);
+      setStatus('Узел не найден в указанном диапазоне', 'err');
+    }
+  } catch (e) {
+    fnShowResult(null, false);
+    setStatus(e.message, 'err');
+  }
+}
+
+function ncSetKind(kind) {
+  document.getElementById('ncKind').value = kind;
+  const wm = kind === 'wm_adr';
+  document.getElementById('ncWmBox').style.display = wm ? 'grid' : 'none';
+  document.getElementById('ncRfBox').style.display = wm ? 'none' : 'grid';
+  document.getElementById('ncNodeList').disabled = !wm;
+  document.getElementById('ncTabWm').classList.toggle('active', wm);
+  document.getElementById('ncTabRf').classList.toggle('active', !wm);
+}
+
+function ncSetView(mode) {
+  const lists = document.getElementById('ncLists');
+  lists.classList.remove('rf-nodescfg-view-nodes', 'rf-nodescfg-view-tasks', 'rf-nodescfg-view-both');
+  lists.classList.add('rf-nodescfg-view-' + (mode || 'both'));
+  const radio = document.querySelector('input[name="ncView"][value="' + (mode || 'both') + '"]');
+  if (radio) radio.checked = true;
+}
+
+function ncToggleKind() {
+  ncSetKind(document.getElementById('ncKind').value);
+}
+
+function ncRenderNodes() {
+  const sel = document.getElementById('ncNodeList');
+  sel.innerHTML = '';
+  ncData.nodes.forEach((n, i) => {
+    const o = document.createElement('option');
+    o.value = i + 1;
+    const id = n.id_hex || (n.id ? n.id.toString(16).toUpperCase().padStart(8, '0') : '');
+    o.textContent = (i + 1) + ' — NetAdr ' + (n.net_adr ?? '') + ' ID ' + id;
+    sel.appendChild(o);
+  });
+}
+
+function ncRenderTasks(results) {
+  const ul = document.getElementById('ncTaskList');
+  ul.innerHTML = '';
+  const byIndex = {};
+  (results || []).forEach(r => { byIndex[r.index] = r; });
+  ncData.tasks.forEach((t, i) => {
+    const li = document.createElement('li');
+    const r = byIndex[i];
+    let status = 'pending';
+    if (r) status = r.success ? 'ok' : 'err';
+    li.className = 'rf-nodescfg-task rf-nodescfg-task--' + status;
+    li.textContent = (i + 1) + '. ' + (t.description || t.kind);
+    if (r && r.error) li.title = r.error;
+    ul.appendChild(li);
+  });
+  if (!ncData.tasks.length) {
+    ul.innerHTML = '<li class="rf-nodescfg-task-empty">Очередь пуста</li>';
+  }
+}
+
+function ncSelectedIndices() {
+  const sel = document.getElementById('ncNodeList');
+  return Array.from(sel.selectedOptions).map(o => parseInt(o.value, 10));
+}
+
+function ncBuildParams() {
+  const kind = document.getElementById('ncKind').value;
+  const build = { kind };
+  if (kind === 'wm_adr') {
+    build.node_indices = ncSelectedIndices();
+    build.start_net_adr = parseInt(document.getElementById('ncStartAdr').value, 10) || 0;
+    build.stop_net_adr = parseInt(document.getElementById('ncStopAdr').value, 10) || 254;
+  } else {
+    build.net_num = parseInt(document.getElementById('ncNetNum').value, 10) || 0;
+    build.pa_level = parseInt(document.getElementById('ncPa').value, 10) || 0;
+    build.rf_use_key = document.getElementById('ncUseKey').checked;
+    build.rf_key = document.getElementById('ncRfKey').value;
+  }
+  return build;
+}
+
+async function ncLoadNodes() {
+  try {
+    const d = await api('GET', '/api/rf/nodes-cfg');
+    ncData.nodes = d.nodes || [];
+    ncData.soft_ver = d.soft_ver || 0;
+    ncData.free_rf_koef = d.free_rf_koef || 0;
+    ncData.tasks = [];
+    ncRenderNodes();
+    ncRenderTasks();
+    document.getElementById('ncResults').innerHTML = '';
+    ncSetView('nodes');
+    setStatus('Загружено узлов: ' + ncData.nodes.length + ' (вер. ' + ncData.soft_ver + ')', 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function ncBuildTasks() {
+  try {
+    const build = ncBuildParams();
+    const d = await api('POST', '/api/rf/nodes-cfg', {
+      build,
+      nodes: ncData.nodes,
+      soft_ver: ncData.soft_ver,
+      free_rf_koef: ncData.free_rf_koef,
+    });
+    ncData.tasks = d.tasks || [];
+    ncRenderTasks();
+    document.getElementById('ncResults').innerHTML = '';
+    ncSetView('tasks');
+    setStatus('Сформировано заданий: ' + ncData.tasks.length, 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+async function ncRunTasks() {
+  try {
+    if (!ncData.tasks.length) throw new Error('сначала сформируйте задания');
+    if (!confirm('Выполнить ' + ncData.tasks.length + ' заданий?')) return;
+    setStatus('Выполнение заданий…', 'info');
+    const build = ncBuildParams();
+    const d = await api('PUT', '/api/rf/nodes-cfg', {
+      build,
+      run: { tasks: ncData.tasks },
+      nodes: ncData.nodes,
+      soft_ver: ncData.soft_ver,
+      free_rf_koef: ncData.free_rf_koef,
+    });
+    ncRenderTasks(d.results || []);
+    const ok = (d.results || []).filter(r => r.success).length;
+    const total = (d.results || []).length;
+    document.getElementById('ncResults').textContent = 'Выполнено: ' + ok + ' / ' + total;
+    setStatus('Выполнено: ' + ok + ' / ' + total, ok === total ? 'ok' : 'err');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+fmToggleFind();
+fnToggleFind();
+ncSetKind('wm_adr');
+ncSetView('both');
+initGroupPicker();
+initNodesGroupPicker();
+
+let slLines = [];
+
+function slRender(entries) {
+  const list = document.getElementById('slList');
+  const tableWrap = document.getElementById('slTable');
+  if (!entries || !entries.length) {
+    list.innerHTML = '<li class="rf-siglevels-empty">Нет данных — выполните чтение</li>';
+    tableWrap.innerHTML = '';
+    return;
+  }
+  list.innerHTML = '';
+  entries.forEach(e => {
+    const li = document.createElement('li');
+    li.className = 'rf-siglevels-item';
+    li.textContent = e.line || (
+      e.index + ' - NetAdr ' + ((e.node && e.node.net_adr) ?? '') +
+      ' = ' + (e.has_rssi ? e.rssi : '—')
+    );
+    list.appendChild(li);
+  });
+
+  let html = '<table><thead><tr><th>#</th><th>NetAdr</th><th>ID</th><th>MainRef</th><th>AdditRef</th><th>RSSI</th></tr></thead><tbody>';
+  entries.forEach(e => {
+    const n = e.node || {};
+    html += '<tr><td>' + e.index + '</td><td>' + (n.net_adr ?? '') + '</td><td>' + (n.id_hex || '') + '</td>';
+    html += '<td>' + (n.main_ref ?? '') + '</td><td>' + (n.addit_ref ?? '') + '</td>';
+    html += '<td>' + (e.has_rssi ? e.rssi : '—') + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  tableWrap.innerHTML = html;
+}
+
+async function slRead() {
+  try {
+    const start = parseInt(document.getElementById('slStart').value, 10) || 1;
+    const stop = parseInt(document.getElementById('slStop').value, 10) || 1;
+    if (start > stop) throw new Error('начальный узел больше конечного');
+    setStatus('Чтение уровней сигнала… узлы ' + start + '–' + stop, 'info');
+    const d = await api('POST', '/api/rf/signal-levels', { start_node: start, stop_node: stop });
+    slLines = (d.entries || []).map(e => e.line || '');
+    slRender(d.entries);
+    setStatus('Прочитано записей: ' + (d.entries || []).length, 'ok');
+  } catch (e) { setStatus(e.message, 'err'); }
+}
+
+function slSaveFile() {
+  if (!slLines.length) { setStatus('Сначала выполните чтение', 'err'); return; }
+  const blob = new Blob([slLines.join('\n') + '\n'], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'signal-levels.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setStatus('Файл сохранён', 'ok');
+}
+</script>
+{{template "expert_page_end" .}}
+{{end}}

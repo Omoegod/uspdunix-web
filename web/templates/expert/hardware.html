@@ -1,0 +1,241 @@
+{{define "expert_hardware"}}
+{{template "expert_page_start" .}}
+
+<div class="card hw-page">
+  <div class="rf-conf-head">
+    <h3>Аппаратная среда</h3>
+    <div class="rf-conf-toolbar">
+      <span id="hwStatus" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Интерфейсы</div>
+      {{if .PhySerialItems}}
+      <div class="hw-table-wrap">
+        <table class="hw-table" id="hwTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Имя устройства</th>
+              <th>Скорость</th>
+              <th>Формат</th>
+              <th>Таймаут ответа</th>
+              <th>Межбайтный</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range $i, $m := .PhySerialItems}}
+            <tr class="hw-row{{if eq $i 0}} is-selected{{end}}" data-idx="{{$i}}" onclick="hwSelect({{$i}})">
+              <td>{{$i}}</td>
+              <td>{{if lt $i (len $.SerialPorts)}}{{index $.SerialPorts $i}}{{else}}{{$m.SerialName}}{{end}}</td>
+              <td>{{$m.BaudRate}}</td>
+              <td>{{$m.DataBits}}/{{$m.Parity}}/{{$m.StopBits}}</td>
+              <td>{{$m.ResponseTimeout}} мс</td>
+              <td>{{$m.SubByteTimeout}} мс</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <p class="muted">Нет интерфейсов</p>
+      {{end}}
+    </section>
+
+    <section class="rf-conf-section" id="hwFormSection">
+      <div class="rf-conf-section-title">Настройка проводного соединения</div>
+      <form id="hwForm" class="sys-form" onsubmit="return hwSave(event)">
+        <input type="hidden" id="hwIdx" name="idx" value="0" />
+        <div class="rf-cfgnode-fields hw-fields">
+          <div class="rf-conf-field">
+            <label>Имя устройства</label>
+            <input id="hwSerialName" type="text" readonly />
+          </div>
+          <div class="rf-conf-field">
+            <label>Скорость</label>
+            <select id="hwBaud" name="baud_rate">
+              <option value="1200">1200</option>
+              <option value="2400">2400</option>
+              <option value="4800">4800</option>
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200">115200</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Биты данных</label>
+            <select id="hwDataBits" name="data_bits">
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Бит паритета</label>
+            <select id="hwParity" name="parity">
+              <option value="0">Нет</option>
+              <option value="2">Чётность</option>
+              <option value="3">Нечётность</option>
+              <option value="4">Space</option>
+              <option value="5">Mark</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Стоп-биты</label>
+            <select id="hwStopBits" name="stop_bits">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">1.5</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Таймаут ожидания ответа (мс)</label>
+            <input id="hwRespTO" name="response_timeout" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Межбайтный таймаут (мс)</label>
+            <input id="hwGapTO" name="sub_byte_timeout" type="number" min="0" max="65535" />
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="hwSaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="hwItemsJson" type="application/json">{{.PhySerialJSON}}</script>
+<script id="hwPortsJson" type="application/json">{{.PhySerialPortsJSON}}</script>
+<script>
+(function () {
+  function parseJson(id) {
+    try {
+      const el = document.getElementById(id);
+      const raw = (el && el.textContent) || '[]';
+      let parsed = JSON.parse(raw);
+      // Some template/render paths can produce a JSON string
+      // that itself contains serialized JSON.
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed);
+      }
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  const items = parseJson('hwItemsJson');
+  const portNames = parseJson('hwPortsJson');
+  let selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    const el = document.getElementById('hwStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function ifaceName(idx, m) {
+    if (idx >= 0 && idx < portNames.length && portNames[idx]) {
+      return portNames[idx];
+    }
+    return (m && m.serial_name) || '';
+  }
+
+  function setSelectValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = String(value);
+    el.value = v;
+    if (el.tagName === 'SELECT' && el.value !== v) {
+      for (let i = 0; i < el.options.length; i++) {
+        if (el.options[i].value === v) {
+          el.selectedIndex = i;
+          break;
+        }
+      }
+    }
+  }
+
+  function fillForm(idx) {
+    const m = items[idx];
+    if (!m) return;
+    document.getElementById('hwSerialName').value = ifaceName(idx, m);
+    setSelectValue('hwBaud', m.baud_rate || 9600);
+    setSelectValue('hwDataBits', m.data_bits || 8);
+    setSelectValue('hwParity', m.parity || 0);
+    setSelectValue('hwStopBits', m.stop_bits || 1);
+    document.getElementById('hwRespTO').value = m.response_timeout ?? 3000;
+    document.getElementById('hwGapTO').value = m.sub_byte_timeout ?? 100;
+  }
+
+  function updateRow(idx, m) {
+    const row = document.querySelector('.hw-row[data-idx="' + idx + '"]');
+    if (!row || !m) return;
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 6) {
+      cells[1].textContent = ifaceName(idx, m);
+      cells[2].textContent = m.baud_rate || '';
+      cells[3].textContent = (m.data_bits || 8) + '/' + (m.parity || 0) + '/' + (m.stop_bits || 1);
+      cells[4].textContent = (m.response_timeout ?? '') + ' мс';
+      cells[5].textContent = (m.sub_byte_timeout ?? '') + ' мс';
+    }
+  }
+
+  window.hwSelect = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.getElementById('hwIdx').value = String(idx);
+    document.querySelectorAll('.hw-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    document.getElementById('hwSaveBtn').disabled = false;
+    setStatus('Выбран интерфейс: ' + ifaceName(idx, items[idx]));
+  };
+
+  window.hwSave = async function (ev) {
+    ev.preventDefault();
+    if (selected < 0) return false;
+    const body = {
+      local_server: (items[selected] && items[selected].local_server) || '',
+      serial_name: ifaceName(selected, items[selected]),
+      baud_rate: parseInt(document.getElementById('hwBaud').value, 10) || 9600,
+      data_bits: parseInt(document.getElementById('hwDataBits').value, 10) || 8,
+      parity: parseInt(document.getElementById('hwParity').value, 10) || 0,
+      stop_bits: parseInt(document.getElementById('hwStopBits').value, 10) || 1,
+      response_timeout: parseInt(document.getElementById('hwRespTO').value, 10) || 0,
+      sub_byte_timeout: parseInt(document.getElementById('hwGapTO').value, 10) || 0,
+    };
+    try {
+      setStatus('Сохранение…');
+      const r = await fetch('/api/interfaces/serial?idx=' + selected, {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(data.error || r.statusText);
+      items[selected] = body;
+      updateRow(selected, body);
+      fillForm(selected);
+      setStatus('Сохранено', true);
+    } catch (e) {
+      setStatus(e.message || String(e), false);
+    }
+    return false;
+  };
+
+  if (selected >= 0) hwSelect(selected);
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

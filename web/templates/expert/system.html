@@ -1,0 +1,107 @@
+{{define "expert_system"}}
+{{template "expert_page_start" .}}
+
+<div class="card sys-page">
+  <div class="rf-conf-head">
+    <h3>Система</h3>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Устройство</div>
+      <div class="rf-cfgnode-fields sys-fields">
+        <div class="rf-conf-field">
+          <label>Серийный номер</label>
+          <input value="{{.DeviceSerial}}" readonly />
+        </div>
+        <div class="rf-conf-field">
+          <label>Версия ПО</label>
+          <input value="{{.SoftwareVer}}" readonly />
+        </div>
+      </div>
+    </section>
+
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Время</div>
+      <form method="post" class="sys-form" id="sysTimeForm" onsubmit="return sysPrepareSubmit()">
+        <div class="sys-time-rows">
+          <div class="sys-time-row">
+            <span class="sys-time-label">Время УСПД</span>
+            <span class="sys-time-value">
+              <span id="sysUspdTime">{{.CurrentTime}}</span>
+              <span id="sysTimeDelta" class="sys-time-delta"></span>
+            </span>
+          </div>
+          <div class="sys-time-row">
+            <span class="sys-time-label">Время ПК</span>
+            <span class="sys-time-value" id="sysPcTime">—</span>
+          </div>
+        </div>
+
+        <label class="rf-check-label sys-sync-check">
+          <input type="checkbox" name="sync_time" value="1" id="sysSyncTime" {{if .TimeSyncReady}}checked{{end}} />
+          Синхронизировать время
+        </label>
+        <input type="hidden" name="client_time" id="sysClientTime" value="" />
+
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary">Применить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  const uspdBaseMs = {{.CurrentTimeUnix}} * 1000;
+  const pageAt = Date.now();
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function formatLocal(d) {
+    return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() +
+      ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+
+  function formatDelta(ms) {
+    const sign = ms >= 0 ? '+' : '−';
+    const abs = Math.abs(ms);
+    const sec = Math.round(abs / 1000);
+    if (sec < 60) return '(' + sign + sec + ' с)';
+    const min = Math.floor(sec / 60);
+    const rem = sec % 60;
+    if (min < 60) return '(' + sign + min + ' мин ' + rem + ' с)';
+    const h = Math.floor(min / 60);
+    return '(' + sign + h + ' ч ' + (min % 60) + ' мин)';
+  }
+
+  function tick() {
+    const now = Date.now();
+    const pc = new Date(now);
+    const uspd = new Date(uspdBaseMs + (now - pageAt));
+    const uspdEl = document.getElementById('sysUspdTime');
+    const pcEl = document.getElementById('sysPcTime');
+    const deltaEl = document.getElementById('sysTimeDelta');
+    if (uspdEl) uspdEl.textContent = formatLocal(uspd);
+    if (pcEl) pcEl.textContent = formatLocal(pc);
+    if (deltaEl) {
+      const d = uspd.getTime() - pc.getTime();
+      deltaEl.textContent = formatDelta(d);
+      deltaEl.classList.toggle('is-zero', Math.abs(d) < 1500);
+    }
+  }
+
+  window.sysPrepareSubmit = function () {
+    const el = document.getElementById('sysClientTime');
+    if (el) el.value = new Date().toISOString();
+    return true;
+  };
+
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

@@ -1,0 +1,384 @@
+{{define "expert_interfaces_serial"}}
+{{template "expert_page_start" .}}
+
+<div class="card pser-page">
+  <div class="rf-conf-head">
+    <h3>Последовательный порт</h3>
+    <div class="rf-conf-toolbar">
+      <button type="button" class="btn-secondary" id="pserAddBtn" onclick="pserAdd()">Добавить</button>
+      <button type="button" class="btn-secondary" id="pserDelBtn" onclick="pserDelete()" disabled>Удалить</button>
+      <span id="pserStatus" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Интерфейсы</div>
+      <div class="hw-table-wrap">
+        <table class="hw-table pser-table" id="pserTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Порт</th>
+              <th>Скорость</th>
+              <th>Формат</th>
+              <th>Таймаут ответа</th>
+              <th>Межбайтный</th>
+            </tr>
+          </thead>
+          <tbody id="pserTableBody">
+            <tr><td colspan="6" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rf-conf-section" id="pserFormSection">
+      <div class="rf-conf-section-title">Настройка интерфейса</div>
+      <form id="pserForm" class="sys-form" onsubmit="return pserSave(event)">
+        <input type="hidden" id="pserIdx" value="0" />
+        <div class="rf-cfgnode-fields pser-fields">
+          <div class="rf-conf-field pser-field-wide">
+            <label>Локальный сервер</label>
+            <input id="pserLocalServer" type="text" readonly />
+          </div>
+          <div class="rf-conf-field">
+            <label>Последовательный порт</label>
+            <select id="pserSerialName"></select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Скорость</label>
+            <select id="pserBaud">
+              <option value="1200">1200</option>
+              <option value="2400">2400</option>
+              <option value="4800">4800</option>
+              <option value="9600">9600</option>
+              <option value="19200">19200</option>
+              <option value="38400">38400</option>
+              <option value="57600">57600</option>
+              <option value="115200">115200</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Биты данных</label>
+            <select id="pserDataBits">
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Бит паритета</label>
+            <select id="pserParity">
+              <option value="0">Нет</option>
+              <option value="2">Чётность</option>
+              <option value="3">Нечётность</option>
+              <option value="4">Space</option>
+              <option value="5">Mark</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Стоп-биты</label>
+            <select id="pserStopBits">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">1.5</option>
+            </select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Таймаут ответа, мс</label>
+            <input id="pserResponseTimeout" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Межбайтовый таймаут, мс</label>
+            <input id="pserSubByteTimeout" type="number" min="0" max="65535" />
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="pserSaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="pserItemsJson" type="application/json">{{.PhySerialJSON}}</script>
+<script id="pserPortsJson" type="application/json">{{.PhySerialPortsJSON}}</script>
+<script>
+(function () {
+  function parseJson(id) {
+    try {
+      const el = document.getElementById(id);
+      let parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  const defaults = {
+    local_server: '',
+    serial_name: 'RS485-1',
+    baud_rate: 9600,
+    data_bits: 8,
+    parity: 0,
+    stop_bits: 1,
+    response_timeout: 3000,
+    sub_byte_timeout: 100
+  };
+
+  let items = parseJson('pserItemsJson');
+  let ports = parseJson('pserPortsJson');
+  if (!Array.isArray(ports) || !ports.length) {
+    ports = ['RFs', 'RS232', 'RS485-1', 'RS485-2'];
+  }
+  let selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    const el = document.getElementById('pserStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function num(id, fallback) {
+    const v = Number(document.getElementById(id).value);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function setSelectValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = String(value);
+    el.value = v;
+    if (el.tagName === 'SELECT' && el.value !== v) {
+      for (let i = 0; i < el.options.length; i++) {
+        if (el.options[i].value === v) {
+          el.selectedIndex = i;
+          break;
+        }
+      }
+    }
+  }
+
+  function fillPortOptions(selectedName) {
+    const sel = document.getElementById('pserSerialName');
+    if (!sel) return;
+    const names = ports.slice();
+    if (selectedName && names.indexOf(selectedName) < 0) {
+      names.push(selectedName);
+    }
+    sel.innerHTML = names.map(function (name) {
+      return '<option value="' + name + '">' + name + '</option>';
+    }).join('');
+    if (selectedName) setSelectValue('pserSerialName', selectedName);
+  }
+
+  function setFormEnabled(on) {
+    document.getElementById('pserSaveBtn').disabled = !on;
+    document.getElementById('pserDelBtn').disabled = !on;
+  }
+
+  function formatRow(m) {
+    return {
+      port: m.serial_name || '',
+      baud: m.baud_rate || '',
+      format: (m.data_bits || 8) + '/' + (m.parity || 0) + '/' + (m.stop_bits || 1),
+      resp: (m.response_timeout ?? '') + ' мс',
+      gap: (m.sub_byte_timeout ?? '') + ' мс'
+    };
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('pserTableBody');
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="muted">Нет интерфейсов</td></tr>';
+      setFormEnabled(false);
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, i) {
+      const row = formatRow(m);
+      const sel = i === selected ? ' is-selected' : '';
+      return (
+        '<tr class="hw-row pser-row' + sel + '" data-idx="' + i + '">' +
+        '<td>' + i + '</td>' +
+        '<td class="pser-port">' + row.port + '</td>' +
+        '<td class="pser-baud">' + row.baud + '</td>' +
+        '<td class="pser-format">' + row.format + '</td>' +
+        '<td class="pser-resp">' + row.resp + '</td>' +
+        '<td class="pser-gap">' + row.gap + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    tbody.querySelectorAll('.pser-row').forEach(function (row) {
+      row.onclick = function () {
+        pserSelect(Number(row.dataset.idx));
+      };
+    });
+  }
+
+  function fillForm(idx) {
+    const m = items[idx];
+    if (!m) return;
+    document.getElementById('pserIdx').value = String(idx);
+    document.getElementById('pserLocalServer').value = m.local_server || '';
+    fillPortOptions(m.serial_name || '');
+    setSelectValue('pserBaud', m.baud_rate || 9600);
+    setSelectValue('pserDataBits', m.data_bits || 8);
+    setSelectValue('pserParity', m.parity || 0);
+    setSelectValue('pserStopBits', m.stop_bits || 1);
+    document.getElementById('pserResponseTimeout').value = m.response_timeout ?? 3000;
+    document.getElementById('pserSubByteTimeout').value = m.sub_byte_timeout ?? 100;
+    setFormEnabled(true);
+  }
+
+  function readForm() {
+    return {
+      local_server: document.getElementById('pserLocalServer').value || '',
+      serial_name: document.getElementById('pserSerialName').value.trim(),
+      baud_rate: num('pserBaud', 9600),
+      data_bits: num('pserDataBits', 8),
+      parity: num('pserParity', 0),
+      stop_bits: num('pserStopBits', 1),
+      response_timeout: num('pserResponseTimeout', 0),
+      sub_byte_timeout: num('pserSubByteTimeout', 0)
+    };
+  }
+
+  function validate(body) {
+    if (!body.serial_name) return 'Укажите последовательный порт';
+    if (body.baud_rate < 1) return 'Некорректная скорость';
+    return '';
+  }
+
+  window.pserSelect = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.querySelectorAll('.pser-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    setStatus('Выбран интерфейс #' + idx);
+  };
+
+  window.pserSave = function (ev) {
+    ev.preventDefault();
+    const idx = Number(document.getElementById('pserIdx').value);
+    const body = readForm();
+    const errMsg = validate(body);
+    if (errMsg) {
+      setStatus(errMsg, false);
+      return false;
+    }
+    setStatus('Сохранение…');
+    fetch('/api/interfaces/serial?idx=' + idx, {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      items[idx] = body;
+      renderTable();
+      pserSelect(idx);
+      setStatus('Сохранено', true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  window.pserAdd = function () {
+    const body = Object.assign({}, defaults);
+    if (ports.length) body.serial_name = ports[0];
+    setStatus('Добавление…');
+    fetch('/api/interfaces/serial', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function (data) {
+      return reloadAll().then(function () {
+        const idx = (typeof data.index === 'number') ? data.index : items.length - 1;
+        if (idx >= 0) pserSelect(idx);
+        setStatus('Добавлено', true);
+      });
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.pserDelete = function () {
+    if (selected < 0 || selected >= items.length) return;
+    if (!confirm('Удалить интерфейс #' + selected + '?')) return;
+    const idx = selected;
+    setStatus('Удаление…');
+    fetch('/api/interfaces/serial?idx=' + idx, {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error((data && data.error) || r.statusText);
+          return data;
+        });
+      })
+      .then(function () {
+        return reloadAll().then(function () {
+          setStatus('Удалено', true);
+        });
+      })
+      .catch(function (err) {
+        setStatus(err.message, false);
+      });
+  };
+
+  function reloadAll() {
+    setStatus('Загрузка…');
+    return Promise.all([
+      fetch('/api/interfaces/serial', { credentials: 'same-origin' }).then(function (r) { return r.json(); }),
+      fetch('/api/interfaces/serial?ports=1', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).catch(function () { return {}; })
+    ]).then(function (results) {
+      const data = results[0] || {};
+      const portsData = results[1] || {};
+      items = data.items || [];
+      if (Array.isArray(portsData.serial_ports) && portsData.serial_ports.length) {
+        ports = portsData.serial_ports;
+      } else if (Array.isArray(portsData.ports) && portsData.ports.length) {
+        ports = portsData.ports;
+      }
+      selected = items.length ? Math.min(Math.max(selected, 0), items.length - 1) : -1;
+      renderTable();
+      if (selected >= 0) pserSelect(selected);
+      else {
+        setFormEnabled(false);
+        document.getElementById('pserForm').reset();
+        document.getElementById('pserLocalServer').value = '';
+        fillPortOptions('');
+      }
+      setStatus('');
+    });
+  }
+
+  fillPortOptions('');
+  renderTable();
+  if (selected >= 0) pserSelect(selected);
+  else setFormEnabled(false);
+  if (!items.length) reloadAll();
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

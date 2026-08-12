@@ -1,0 +1,439 @@
+{{define "expert_modules_gss_reader"}}
+{{template "expert_page_start" .}}
+
+<div class="card gssr-page">
+  <div class="rf-conf-head">
+    <p class="page-lead"><a href="/expert/modules">← Обзор модулей</a></p>
+    <h3>Сборщики даннах</h3>
+    <div class="rf-conf-toolbar">
+      {{if not .DeviceBacked}}
+      <button type="button" class="btn-secondary" id="gssrAddBtn" onclick="gssrAdd()">Добавить</button>
+      <button type="button" class="btn-secondary" id="gssrDelBtn" onclick="gssrDelete()" disabled>Удалить</button>
+      {{end}}
+      <span id="gssrStatus" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="sys-layout">
+    <section class="rf-conf-section">
+      <div class="rf-conf-section-title">Модули</div>
+      <div class="hw-table-wrap">
+        <table class="hw-table gssr-table" id="gssrTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Интерфейс передачи</th>
+              <th>Группа</th>
+              <th>Тишина</th>
+            </tr>
+          </thead>
+          <tbody id="gssrTableBody">
+            <tr><td colspan="4" class="muted">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rf-conf-section" id="gssrFormSection">
+      <div class="rf-conf-section-title">Настройка модуля</div>
+      <form id="gssrForm" class="sys-form" onsubmit="return gssrSave(event)">
+        <input type="hidden" id="gssrIdx" value="0" />
+        <div class="rf-cfgnode-fields gssr-fields">
+          <div class="rf-conf-field gssr-field-wide">
+            <label>Группа устройств</label>
+            <select id="gssrEpGroup"></select>
+          </div>
+          <div class="rf-conf-field gssr-field-wide">
+            <label>Интерфейс передачи</label>
+            <select id="gssrServerOutput"></select>
+          </div>
+          <div class="rf-conf-field">
+            <label>Начало тишины</label>
+            <input id="gssrMuteStart" type="text" placeholder="23:55:00" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Конец тишины</label>
+            <input id="gssrMuteStop" type="text" placeholder="00:05:00" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Период Ki/Ku/DF, сек</label>
+            <input id="gssrPeriodKiKu" type="number" min="0" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Период событий, сек</label>
+            <input id="gssrPeriodEvent" type="number" min="0" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Период сверки времени, сек</label>
+            <input id="gssrPeriodVerify" type="number" min="0" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Макс. время async, сек</label>
+            <input id="gssrMaxAsync" type="number" min="0" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Макс. время async up, сек</label>
+            <input id="gssrMaxAsyncUp" type="number" min="0" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Макс. время задачи, сек</label>
+            <input id="gssrTaskMax" type="number" min="0" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Простой задачи, сек</label>
+            <input id="gssrTaskIdle" type="number" min="0" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Глубина архива (год)</label>
+            <input id="gssrYearArh" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Глубина архива (месяц)</label>
+            <input id="gssrMonthArh" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Глубина архива (день)</label>
+            <input id="gssrDayArh" type="number" min="0" max="65535" />
+          </div>
+          <div class="rf-conf-field">
+            <label>Период MBus, сек</label>
+            <input id="gssrPeriodMb" type="number" min="0" />
+          </div>
+        </div>
+        <div class="sys-actions">
+          <button type="submit" class="btn-primary" id="gssrSaveBtn" disabled>Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script id="gssrItemsJson" type="application/json">{{.GssReadersJSON}}</script>
+<script id="gssrTransfersJson" type="application/json">{{.TransferIfacesJSON}}</script>
+<script id="gssrGroupsJson" type="application/json">{{.EpGroupsJSON}}</script>
+<script>
+(function () {
+  const deviceBacked = {{if .DeviceBacked}}true{{else}}false{{end}};
+
+  function parseJson(id) {
+    try {
+      const el = document.getElementById(id);
+      let parsed = JSON.parse((el && el.textContent) || '[]');
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  const defaults = {
+    server_output: '',
+    ep_group_idx: 0,
+    mute_start: '23:55:00',
+    mute_stop: '00:05:00',
+    period_update_ki_ku_and_df: 43200,
+    period_update_event: 43200,
+    period_verify_time: 43200,
+    max_time_asynk: 20,
+    max_time_asynk_up: 4200,
+    task_max_work_time: 14400,
+    task_idle_time: 3600,
+    year_arh_listen_count: 7,
+    month_arh_listen_count: 12,
+    day_arh_listen_count: 12,
+    period_update_data_mb: 14400
+  };
+
+  let items = parseJson('gssrItemsJson');
+  let transfers = parseJson('gssrTransfersJson');
+  let groups = parseJson('gssrGroupsJson');
+  let selected = items.length ? 0 : -1;
+
+  function setStatus(msg, ok) {
+    const el = document.getElementById('gssrStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = ok === true ? 'status ok' : (ok === false ? 'status err' : 'muted');
+  }
+
+  function transferLabel(serverOutput) {
+    for (let i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === serverOutput) return transfers[i].label;
+    }
+    return serverOutput || '—';
+  }
+
+  function groupLabel(idx) {
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) {
+        return 'Группа #' + idx + ' (' + groups[i].count + ' устр.)';
+      }
+    }
+    return 'Группа #' + idx;
+  }
+
+  function ensureTransferOption(serverOutput) {
+    if (!serverOutput) return;
+    for (let i = 0; i < transfers.length; i++) {
+      if (transfers[i].server_output === serverOutput) return;
+    }
+    transfers.push({ kind: 'custom', label: 'Текущее: ' + serverOutput, server_output: serverOutput });
+  }
+
+  function ensureGroupOption(idx) {
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i].index === idx) return;
+    }
+    groups.push({ index: idx, count: 0 });
+  }
+
+  function fillTransferSelect(current) {
+    const sel = document.getElementById('gssrServerOutput');
+    if (!sel) return;
+    ensureTransferOption(current);
+    sel.innerHTML = '';
+    transfers.forEach(function (t) {
+      const opt = document.createElement('option');
+      opt.value = t.server_output;
+      opt.textContent = t.label;
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+  }
+
+  function fillGroupSelect(current) {
+    const sel = document.getElementById('gssrEpGroup');
+    if (!sel) return;
+    ensureGroupOption(current);
+    groups.sort(function (a, b) { return a.index - b.index; });
+    sel.innerHTML = '';
+    groups.forEach(function (g) {
+      const opt = document.createElement('option');
+      opt.value = String(g.index);
+      opt.textContent = groupLabel(g.index);
+      sel.appendChild(opt);
+    });
+    sel.value = String(current);
+  }
+
+  function setFormEnabled(on) {
+    document.getElementById('gssrSaveBtn').disabled = !on;
+    const delBtn = document.getElementById('gssrDelBtn');
+    if (delBtn) delBtn.disabled = !on;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('gssrTableBody');
+    if (!tbody) return;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">Нет модулей</td></tr>';
+      setFormEnabled(false);
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, i) {
+      const sel = i === selected ? ' is-selected' : '';
+      const mute = (m.mute_start || '') + ' — ' + (m.mute_stop || '');
+      return (
+        '<tr class="hw-row gssr-row' + sel + '" data-idx="' + i + '">' +
+        '<td>' + i + '</td>' +
+        '<td class="gssr-out">' + transferLabel(m.server_output) + '</td>' +
+        '<td>' + groupLabel(Number(m.ep_group_idx) || 0) + '</td>' +
+        '<td class="gssr-mute">' + mute + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+    tbody.querySelectorAll('.gssr-row').forEach(function (row) {
+      row.onclick = function () {
+        gssrSelect(Number(row.dataset.idx));
+      };
+    });
+  }
+
+  function num(id, fallback) {
+    const v = Number(document.getElementById(id).value);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function fillForm(idx) {
+    const m = items[idx];
+    if (!m) return;
+    document.getElementById('gssrIdx').value = String(idx);
+    fillGroupSelect(Number(m.ep_group_idx) || 0);
+    fillTransferSelect(m.server_output || '');
+    document.getElementById('gssrMuteStart').value = m.mute_start || '';
+    document.getElementById('gssrMuteStop').value = m.mute_stop || '';
+    document.getElementById('gssrPeriodKiKu').value = m.period_update_ki_ku_and_df || 0;
+    document.getElementById('gssrPeriodEvent').value = m.period_update_event || 0;
+    document.getElementById('gssrPeriodVerify').value = m.period_verify_time || 0;
+    document.getElementById('gssrMaxAsync').value = m.max_time_asynk || 0;
+    document.getElementById('gssrMaxAsyncUp').value = m.max_time_asynk_up || 0;
+    document.getElementById('gssrTaskMax').value = m.task_max_work_time || 0;
+    document.getElementById('gssrTaskIdle').value = m.task_idle_time || 0;
+    document.getElementById('gssrYearArh').value = m.year_arh_listen_count || 0;
+    document.getElementById('gssrMonthArh').value = m.month_arh_listen_count || 0;
+    document.getElementById('gssrDayArh').value = m.day_arh_listen_count || 0;
+    document.getElementById('gssrPeriodMb').value = m.period_update_data_mb || 0;
+    setFormEnabled(true);
+  }
+
+  function readForm() {
+    return {
+      server_output: document.getElementById('gssrServerOutput').value,
+      ep_group_idx: num('gssrEpGroup', 0),
+      mute_start: document.getElementById('gssrMuteStart').value.trim(),
+      mute_stop: document.getElementById('gssrMuteStop').value.trim(),
+      period_update_ki_ku_and_df: num('gssrPeriodKiKu', 0),
+      period_update_event: num('gssrPeriodEvent', 0),
+      period_verify_time: num('gssrPeriodVerify', 0),
+      max_time_asynk: num('gssrMaxAsync', 0),
+      max_time_asynk_up: num('gssrMaxAsyncUp', 0),
+      task_max_work_time: num('gssrTaskMax', 0),
+      task_idle_time: num('gssrTaskIdle', 0),
+      year_arh_listen_count: num('gssrYearArh', 0),
+      month_arh_listen_count: num('gssrMonthArh', 0),
+      day_arh_listen_count: num('gssrDayArh', 0),
+      period_update_data_mb: num('gssrPeriodMb', 0)
+    };
+  }
+
+  function validate(body) {
+    if (!body.server_output) return 'Выберите интерфейс передачи';
+    if (!/^\d{2}:\d{2}:\d{2}$/.test(body.mute_start)) return 'Некорректное начало тишины (HH:MM:SS)';
+    if (!/^\d{2}:\d{2}:\d{2}$/.test(body.mute_stop)) return 'Некорректный конец тишины (HH:MM:SS)';
+    return '';
+  }
+
+  window.gssrSelect = function (idx) {
+    if (idx < 0 || idx >= items.length) return;
+    selected = idx;
+    document.querySelectorAll('.gssr-row').forEach(function (row) {
+      row.classList.toggle('is-selected', Number(row.dataset.idx) === idx);
+    });
+    fillForm(idx);
+    setStatus('Выбран модуль #' + idx);
+  };
+
+  window.gssrSave = function (ev) {
+    ev.preventDefault();
+    const idx = Number(document.getElementById('gssrIdx').value);
+    const body = readForm();
+    const errMsg = validate(body);
+    if (errMsg) {
+      setStatus(errMsg, false);
+      return false;
+    }
+    setStatus('Сохранение…');
+    fetch('/api/modules/uspd-gss-reader?idx=' + idx, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      items[idx] = body;
+      renderTable();
+      gssrSelect(idx);
+      setStatus('Сохранено', true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+    return false;
+  };
+
+  window.gssrAdd = function () {
+    if (deviceBacked) return;
+    setStatus('Добавление…');
+    fetch('/api/modules/uspd-gss-reader', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(defaults)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || r.statusText);
+        return data;
+      });
+    }).then(function () {
+      return reloadAll().then(function () {
+        if (items.length) gssrSelect(items.length - 1);
+        setStatus('Добавлено', true);
+      });
+    }).catch(function (err) {
+      setStatus(err.message, false);
+    });
+  };
+
+  window.gssrDelete = function () {
+    if (deviceBacked || selected < 0 || selected >= items.length) return;
+    if (!confirm('Удалить модуль #' + selected + '?')) return;
+    const idx = selected;
+    setStatus('Удаление…');
+    fetch('/api/modules/uspd-gss-reader?idx=' + idx, { method: 'DELETE' })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error((data && data.error) || r.statusText);
+          return data;
+        });
+      })
+      .then(function () {
+        return reloadAll().then(function () {
+          setStatus('Удалено', true);
+        });
+      })
+      .catch(function (err) {
+        setStatus(err.message, false);
+      });
+  };
+
+  function reloadAll() {
+    setStatus('Загрузка…');
+    return Promise.all([
+      fetch('/api/modules/uspd-gss-reader').then(function (r) { return r.json(); }),
+      fetch('/api/modules/uspd-gss-reader?transfers=1').then(function (r) { return r.json(); }),
+      fetch('/api/endpoint-groups').then(function (r) { return r.json(); })
+    ]).then(function (results) {
+      items = (results[0] && results[0].items) || [];
+      transfers = (results[1] && results[1].items) || transfers || [];
+      groups = (results[2] && results[2].items) || groups || [];
+      items.forEach(function (m) {
+        ensureTransferOption(m.server_output);
+        ensureGroupOption(Number(m.ep_group_idx) || 0);
+      });
+      selected = items.length ? Math.min(Math.max(selected, 0), items.length - 1) : -1;
+      renderTable();
+      if (selected >= 0) gssrSelect(selected);
+      else {
+        setFormEnabled(false);
+        document.getElementById('gssrForm').reset();
+      }
+      setStatus('Модулей: ' + items.length, true);
+    }).catch(function (err) {
+      setStatus(err.message, false);
+      renderTable();
+    });
+  }
+
+  const urlIdx = new URLSearchParams(window.location.search).get('idx');
+  if (items.length) {
+    items.forEach(function (m) {
+      ensureTransferOption(m.server_output);
+      ensureGroupOption(Number(m.ep_group_idx) || 0);
+    });
+    renderTable();
+    const startIdx = urlIdx !== null ? Number(urlIdx) : 0;
+    if (Number.isFinite(startIdx) && startIdx >= 0 && startIdx < items.length) {
+      gssrSelect(startIdx);
+    } else {
+      gssrSelect(0);
+    }
+    setStatus('Модулей: ' + items.length);
+  } else {
+    reloadAll();
+  }
+})();
+</script>
+
+{{template "expert_page_end" .}}
+{{end}}

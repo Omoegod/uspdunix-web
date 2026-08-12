@@ -1,0 +1,47 @@
+{{define "expert_endpoint_groups_detail"}}
+{{template "expert_page_start" .}}
+
+<p class="page-lead"><a href="/expert/endpoint-groups">← Группы</a></p>
+<div class="card">
+    {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+    <p>COM_GET_MOD_DATA / COM_ADD_MOD_DATA — member endpoint indices</p>
+    <h2>Members</h2>
+    <table>
+      <tr><th>Pos</th><th>Endpoint #</th><th></th></tr>
+      {{range $i, $ep := .EpGroup.EndpointIndices}}
+      <tr>
+        <td>{{$i}}</td>
+        <td>{{$ep}}</td>
+        <td>
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="action" value="remove_member" />
+            <input type="hidden" name="member_idx" value="{{$i}}" />
+            <button type="submit">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
+    <h2>Add endpoint to group</h2>
+    <form method="post">
+      <input type="hidden" name="action" value="add_member" />
+      <label>Endpoint index</label>
+      <select name="endpoint_idx">
+        {{range .Endpoints}}
+        <option value="{{.Index}}">#{{.Index}} — {{if .Label}}{{.Label}}{{else}}{{.TypeName}}{{end}}</option>
+        {{end}}
+      </select>
+      <button type="submit">Append (COM_ADD_MOD_DATA)</button>
+    </form>
+    <h2>Replace full member list</h2>
+    <form method="post">
+      <input type="hidden" name="action" value="set_members" />
+      <label>Indices (comma-separated)</label>
+      <input name="endpoint_indices" size="40" placeholder="0,1,2" />
+      <button type="submit">Set members</button>
+    </form>
+    <p class="muted">Available endpoints: {{.EndpointCount}}</p>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

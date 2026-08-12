@@ -1,0 +1,174 @@
+{{define "expert_modules_list"}}
+{{template "expert_page_start" .}}
+
+<p class="page-lead"><a href="/expert/modules">← Обзор модулей</a></p>
+<div class="card">
+    <p>Instances: {{.ModuleCount}}</p>
+
+    {{if eq .ModuleKind "protocol-converter"}}
+    <table>
+      <tr><th>#</th><th>Input server</th><th>Output server</th><th>EP group</th><th></th></tr>
+      {{range $i, $m := .ProtConverters}}
+      <tr>
+        <td>{{$i}}</td>
+        <td>{{$m.LocalServerInput}}</td>
+        <td>{{$m.LocalServerOutput}}</td>
+        <td>{{$m.EpGroupIdx}}</td>
+        <td>
+          <a href="/expert/modules/protocol-converter/detail?idx={{$i}}">Edit</a>
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="idx" value="{{$i}}" />
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+
+    {{if eq .ModuleKind "uspd-gss-ep"}}
+    <table>
+      <tr><th>#</th><th>Input</th><th>Output</th><th>EP group</th><th></th></tr>
+      {{range $i, $m := .GssEps}}
+      <tr>
+        <td>{{$i}}</td>
+        <td>{{$m.LocalServerInput}}</td>
+        <td>{{$m.LocalServerOutput}}</td>
+        <td>{{$m.EpGroupIdx}}</td>
+        <td>
+          <a href="/expert/modules/uspd-gss-ep/detail?idx={{$i}}">Edit</a>
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="idx" value="{{$i}}" />
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+
+    {{if eq .ModuleKind "uspd-gss-reader"}}
+    <table>
+      <tr><th>#</th><th>Output server</th><th>EP group</th><th>Mute</th><th></th></tr>
+      {{range $i, $m := .GssReaders}}
+      <tr>
+        <td>{{$i}}</td>
+        <td>{{$m.ServerOutput}}</td>
+        <td>{{$m.EpGroupIdx}}</td>
+        <td>{{$m.MuteStart}} — {{$m.MuteStop}}</td>
+        <td>
+          <a href="/expert/modules/uspd-gss-reader/detail?idx={{$i}}">Edit</a>
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="idx" value="{{$i}}" />
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+
+    {{if eq .ModuleKind "ssdu02"}}
+    <table>
+      <tr><th>#</th><th>Output</th><th>EP group</th><th>Node</th><th></th></tr>
+      {{range $i, $m := .Ssdu02List}}
+      <tr>
+        <td>{{$i}}</td>
+        <td>{{$m.LocalServerOutput}}</td>
+        <td>{{$m.EpGroupIdx}}</td>
+        <td>{{$m.MainNode.SerialNum}} / {{$m.MainNode.NetAdr}}</td>
+        <td>
+          <a href="/expert/modules/ssdu02/detail?idx={{$i}}">Edit</a>
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="idx" value="{{$i}}" />
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+
+    {{if eq .ModuleKind "ssdu03"}}
+    <table>
+      <tr><th>#</th><th>Output</th><th>EP group</th><th>Node</th><th></th></tr>
+      {{range $i, $m := .Ssdu03List}}
+      <tr>
+        <td>{{$i}}</td>
+        <td>{{$m.LocalServerOutput}}</td>
+        <td>{{$m.EpGroupIdx}}</td>
+        <td>{{$m.MainNode.SerialNum}} / {{$m.MainNode.NetAdr}}</td>
+        <td>
+          <a href="/expert/modules/ssdu03/detail?idx={{$i}}">Edit</a>
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="idx" value="{{$i}}" />
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+
+    {{if eq .ModuleKind "rmxx"}}
+    <table>
+      <tr><th>#</th><th>Serial</th><th>COM1</th><th></th></tr>
+      {{range $i, $m := .RmXXList}}
+      <tr>
+        <td>{{$i}}</td><td>{{$m.SerialNumber}}</td><td>{{$m.LocalServerInCOM1}}</td>
+        <td><a href="/expert/modules/rmxx/detail?idx={{$i}}">Edit</a>
+        <form method="post" style="display:inline;"><input type="hidden" name="action" value="delete" /><input type="hidden" name="idx" value="{{$i}}" /><button type="submit">Delete</button></form></td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+    {{if eq .ModuleKind "mbus-modbus"}}
+    <table>
+      <tr><th>#</th><th>Input</th><th>Serial</th><th>EP group</th><th></th></tr>
+      {{range $i, $m := .MBusModbusList}}
+      <tr>
+        <td>{{$i}}</td><td>{{$m.LocalServerInput}}</td><td>{{$m.SerialNum}}</td><td>{{$m.EpGroupIdx}}</td>
+        <td><a href="/expert/modules/mbus-modbus/detail?idx={{$i}}">Edit</a>
+        <form method="post" style="display:inline;"><input type="hidden" name="action" value="delete" /><input type="hidden" name="idx" value="{{$i}}" /><button type="submit">Delete</button></form></td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+    {{if eq .ModuleKind "dlms-profiles"}}
+    <table>
+      <tr><th>#</th><th>Name</th><th>Compatible</th><th></th></tr>
+      {{range $i, $m := .DlmsProfiles}}
+      <tr>
+        <td>{{$i}}</td><td>{{$m.ProfileName}}</td><td>{{$m.EpCompatible}}</td>
+        <td><a href="/expert/modules/dlms-profiles/detail?idx={{$i}}">Edit</a>
+        <form method="post" style="display:inline;"><input type="hidden" name="action" value="delete" /><input type="hidden" name="idx" value="{{$i}}" /><button type="submit">Delete</button></form></td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+    {{if eq .ModuleKind "becloud"}}
+    <table>
+      <tr><th>#</th><th>User</th><th>Enabled</th><th></th></tr>
+      {{range $i, $m := .BeCloudList}}
+      <tr>
+        <td>{{$i}}</td><td>{{$m.UserName}}</td><td>{{$m.Enable}}</td>
+        <td><a href="/expert/modules/becloud/detail?idx={{$i}}">Edit</a>
+        <form method="post" style="display:inline;"><input type="hidden" name="action" value="delete" /><input type="hidden" name="idx" value="{{$i}}" /><button type="submit">Delete</button></form></td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+
+    <form method="post">
+      <input type="hidden" name="action" value="add" />
+      <button type="submit">Add module (COM_ADD_MOD)</button>
+    </form>
+</div>
+
+{{template "expert_page_end" .}}
+{{end}}

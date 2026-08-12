@@ -1,0 +1,10 @@
+body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1f2937; }
+header { background: #111827; color: #fff; padding: 12px 20px; }
+main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+.card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 16px; }
+.nav a { margin-right: 12px; }
+table { width: 100%; border-collapse: collapse; }
+td, th { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+pre { background: #f3f4f6; padding: 12px; overflow: auto; max-height: 320px; }
+.muted { color: #6b7280; }
+.step-nav a { margin-right: 8px; }

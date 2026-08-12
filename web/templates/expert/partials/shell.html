@@ -1,0 +1,94 @@
+{{define "expert_page_start"}}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{.Title}} — USPD Web</title>
+  <link rel="stylesheet" href="/static/expert.css" />
+  {{block "page_head" .}}{{end}}
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    {{template "expert_sidebar" .}}
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <h1 class="topbar-title">{{.Title}}</h1>
+      {{if .Username}}<span class="topbar-user">{{.Username}}</span>{{end}}
+      <a href="/logout" class="topbar-logout">Выход</a>
+    </header>
+    <main class="content">
+{{end}}
+
+{{define "expert_page_end"}}
+    </main>
+  </div>
+</div>
+<script src="/static/expert.js"></script>
+{{block "page_scripts" .}}{{end}}
+</body>
+</html>
+{{end}}
+
+{{define "expert_sidebar"}}
+<nav class="side-nav">
+  <div class="side-brand"><a href="/expert/dashboard">USPD Web</a></div>
+
+  <div class="nav-items nav-highlight">
+    <a href="/expert/quickstart">Быстрый старт</a>
+  </div>
+
+  <details class="nav-section" open>
+    <summary>УСПД</summary>
+    <div class="nav-items">
+      <a href="/expert/system">Система</a>
+      <a href="/expert/users">Пользователи</a>
+      <a href="/expert/hardware">Аппаратная среда</a>
+      <a href="/expert/endpoints">Устройства и группы</a>
+    </div>
+  </details>
+
+  <details class="nav-section">
+    <summary>Интерфейсы</summary>
+    <div class="nav-items">
+      <a href="/expert/interfaces/input-tcp">Входной TCP-сервер</a>
+      <a href="/expert/interfaces/tcp">Физический TCP</a>
+      <a href="/expert/interfaces/serial">Последовательный порт</a>
+    </div>
+  </details>
+
+  <details class="nav-section">
+    <summary>Модули</summary>
+    <div class="nav-items">
+      <a href="/expert/modules">Обзор модулей</a>
+      <a href="/expert/modules/protocol-converter" class="sub">Конвертер протоколов</a>
+      <a href="/expert/modules/uspd-gss-ep" class="sub">УСПД в протоколе GSS</a>
+      <a href="/expert/modules/uspd-gss-reader" class="sub">Сборщики даннах</a>
+      <a href="/expert/modules/ssdu02" class="sub">УСПД в протоколе ССДУ-02</a>
+      <a href="/expert/modules/ssdu03" class="sub">УСПД в протоколе ССДУ-03</a>
+      <a href="/expert/modules/rmxx" class="sub">RMXX</a>
+      <a href="/expert/modules/dlms-profiles" class="sub">DLMS Profiles</a>
+      <a href="/expert/modules/mbus-modbus" class="sub">MBus → Modbus</a>
+      <a href="/expert/modules/becloud" class="sub">BeCloud</a>
+    </div>
+  </details>
+
+  <details class="nav-section">
+    <summary>Радиомаршрутизатор</summary>
+    <div class="nav-items">
+      <a href="/expert/rf-config#conf" data-rf-panel="conf">Конфигурация</a>
+      <a href="/expert/rf-config#nodes" data-rf-panel="nodes">Узлы</a>
+      <a href="/expert/rf-config#transit" data-rf-panel="transit">Режим работы</a>
+      <a href="/expert/rf-config#endpoints" data-rf-panel="endpoints">Конечные точки</a>
+      <a href="/expert/rf-config#netrfs" data-rf-panel="netrfs">Поиск сети RFs</a>
+      <a href="/expert/rf-config#cfgnode" data-rf-panel="cfgnode">Параметризация узла</a>
+      <a href="/expert/rf-config#findmeter" data-rf-panel="findmeter">Поиск счётчика</a>
+      <a href="/expert/rf-config#nodescfg" data-rf-panel="nodescfg">Параметризация по списку</a>
+      <a href="/expert/rf-config#findnetnum" data-rf-panel="findnetnum">Поиск подсети</a>
+      <a href="/expert/rf-config#siglevels" data-rf-panel="siglevels">Уровни сигнала</a>
+    </div>
+  </details>
+</nav>
+{{end}}

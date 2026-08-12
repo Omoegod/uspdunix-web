@@ -1,0 +1,83 @@
+{{define "login"}}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/expert.css" />
+  <style>
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card { width: 100%; max-width: 440px; }
+    .login-card h1 { margin-top: 0; }
+    .login-card input { max-width: 100%; }
+    .login-card button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .lockout-timer { font-weight: 600; color: #b45309; }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="card login-card">
+    <h1>{{.Title}}</h1>
+    <p class="muted">{{.Message}}</p>
+    {{if .Error}}<p class="error" id="loginError">{{.Error}}</p>{{else}}<p class="error" id="loginError" style="display:none"></p>{{end}}
+    <form method="post" action="/login" id="loginForm">
+      <label for="user">Пользователь</label>
+      <input id="user" name="user" type="text" value="{{.Username}}" required autocomplete="username" />
+      <label for="pass">Пароль</label>
+      <input id="pass" name="pass" type="password" required autocomplete="current-password" />
+      <button type="submit" class="btn-primary" id="loginBtn" style="width:100%;margin-top:16px">Войти</button>
+    </form>
+  </div>
+</div>
+<script>
+(function () {
+  var lockSec = {{.LockoutSeconds}};
+  if (!lockSec || lockSec < 1) return;
+
+  var btn = document.getElementById('loginBtn');
+  var user = document.getElementById('user');
+  var pass = document.getElementById('pass');
+  var err = document.getElementById('loginError');
+  var form = document.getElementById('loginForm');
+
+  function fmt(sec) {
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    if (m > 0) return m + ':' + String(s).padStart(2, '0');
+    return sec + ' сек.';
+  }
+
+  function setLocked(sec) {
+    btn.disabled = true;
+    user.disabled = true;
+    pass.disabled = true;
+    err.style.display = 'block';
+    err.textContent = 'Слишком много попыток. Повторите через ' + fmt(sec);
+    err.className = 'error lockout-timer';
+  }
+
+  setLocked(lockSec);
+  form.addEventListener('submit', function (e) {
+    if (lockSec > 0) {
+      e.preventDefault();
+    }
+  });
+
+  var timer = setInterval(function () {
+    lockSec--;
+    if (lockSec <= 0) {
+      clearInterval(timer);
+      btn.disabled = false;
+      user.disabled = false;
+      pass.disabled = false;
+      err.style.display = 'none';
+      return;
+    }
+    setLocked(lockSec);
+  }, 1000);
+})();
+</script>
+</body>
+</html>
+{{end}}
