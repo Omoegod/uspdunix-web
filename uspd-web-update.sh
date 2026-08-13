@@ -13,7 +13,7 @@ TARBALL="${2:?tarball path required}"
 BINARY="${3:-uspd-web}"
 SERVICE="${4:-uspd-web}"
 
-LOG="/tmp/uspd-web-update.log"
+LOG="/home/orangepi/uspd-web-update.log"
 log() { printf '%s\n' "$*" >>"$LOG"; }
 
 log "=== uspd-web update (manual) at $(date -Iseconds 2>/dev/null || date) ==="
@@ -79,6 +79,6 @@ fi
 pkill -f "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
 sleep 1
 cd "$INSTALL_DIR"
-nohup "./${BINARY}" >> /tmp/uspd-web.log 2>&1 &
+nohup "./${BINARY}" >> /home/orangepi/uspd-web.log 2>&1 &
 log "Started via nohup (pid $!)"
 log "=== update complete ==="

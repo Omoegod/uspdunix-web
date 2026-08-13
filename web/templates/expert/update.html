@@ -160,7 +160,7 @@
 
       setStatus(d.message || 'Обновление запущено', 'ok');
       document.getElementById('updWarn').style.display = 'block';
-      document.getElementById('updWarn').textContent = 'Ожидание перезапуска… Лог: /tmp/uspd-web-update.log';
+      document.getElementById('updWarn').textContent = 'Ожидание перезапуска… Лог: /home/orangepi/uspd-web-update.log';
       fetchLog();
       const logPoll = setInterval(fetchLog, 3000);
 

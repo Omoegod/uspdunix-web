@@ -131,10 +131,10 @@ cd /opt/uspd-web
 sudo systemctl stop uspd-web
 
 VERSION=1.1.0
-wget -O /tmp/uspd-web.tar.gz \
+wget -O /home/orangepi/uspd-web.tar.gz \
   https://github.com/Omoegod/uspdunix-web/releases/download/v${VERSION}/uspd-web-${VERSION}.tar.gz
 
-tar -xzf /tmp/uspd-web.tar.gz -C /opt/uspd-web
+tar -xzf /home/orangepi/uspd-web.tar.gz -C /opt/uspd-web
 sudo systemctl start uspd-web
 ```
 
