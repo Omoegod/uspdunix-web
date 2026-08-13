@@ -95,7 +95,6 @@
       document.getElementById('updLatest').value = d.latest_version || '—';
       document.getElementById('updRepo').value = d.release_repo || '—';
       document.getElementById('updInstall').value = d.install_path || '—';
-      document.getElementById('updSudo').value = d.sudo_configured ? 'настроен (USPD_SUDO_PASSWORD)' : 'не задан — нужен для /opt';
       document.getElementById('updPublished').value = fmtDate(d.published_at);
       document.getElementById('updReleaseUrl').value = d.release_url || '—';
       latestVersion = d.latest_version || '';
@@ -113,11 +112,7 @@
         if (onDevice) {
           applyBtn.disabled = false;
           warn.style.display = 'block';
-          let w = 'После нажатия «Установить» соединение может прерваться на 10–30 секунд, пока выполняется обновление.';
-          if (!d.sudo_configured && (d.install_path || '').indexOf('/opt') === 0) {
-            w += ' Для каталога /opt задайте USPD_SUDO_PASSWORD при запуске uspd-web.';
-          }
-          warn.textContent = w;
+          warn.textContent = 'После нажатия «Установить» соединение может прерваться на 10–30 секунд, пока выполняется обновление.';
         } else {
           warn.style.display = 'block';
           warn.textContent = 'Установка доступна только на сборке uspd-web, запущенной на самом УСПД (onDevice=true).';
