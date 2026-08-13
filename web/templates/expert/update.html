@@ -37,6 +37,10 @@
           <label>Каталог установки</label>
           <input id="updInstall" readonly value="—" />
         </div>
+        <div class="rf-conf-field">
+          <label>Sudo для установки</label>
+          <input id="updSudo" readonly value="—" />
+        </div>
       </div>
     </section>
 
@@ -56,6 +60,7 @@
   </div>
 
   <div id="updWarn" class="rf-netrfs-warn" style="display:none;margin-top:16px"></div>
+  <pre id="updLog" class="sys-log" style="display:none;margin-top:16px;max-height:240px;overflow:auto"></pre>
 </div>
 
 {{template "expert_page_end" .}}
@@ -94,6 +99,7 @@
       document.getElementById('updLatest').value = d.latest_version || '—';
       document.getElementById('updRepo').value = d.release_repo || '—';
       document.getElementById('updInstall').value = d.install_path || '—';
+      document.getElementById('updSudo').value = d.sudo_configured ? 'настроен (USPD_SUDO_PASSWORD)' : 'не задан — нужен для /opt';
       document.getElementById('updPublished').value = fmtDate(d.published_at);
       document.getElementById('updReleaseUrl').value = d.release_url || '—';
       latestVersion = d.latest_version || '';
@@ -111,7 +117,11 @@
         if (onDevice) {
           applyBtn.disabled = false;
           warn.style.display = 'block';
-          warn.textContent = 'После нажатия «Установить» соединение может прерваться на 10–30 секунд, пока выполняется обновление.';
+          let w = 'После нажатия «Установить» соединение может прерваться на 10–30 секунд, пока выполняется обновление.';
+          if (!d.sudo_configured && (d.install_path || '').indexOf('/opt') === 0) {
+            w += ' Для каталога /opt задайте USPD_SUDO_PASSWORD при запуске uspd-web.';
+          }
+          warn.textContent = w;
         } else {
           warn.style.display = 'block';
           warn.textContent = 'Установка доступна только на сборке uspd-web, запущенной на самом УСПД (onDevice=true).';
@@ -126,6 +136,18 @@
       btn.disabled = false;
     }
   };
+
+  async function fetchLog() {
+    try {
+      const r = await fetch('/api/web/update/log', { credentials: 'same-origin' });
+      const d = await r.json();
+      if (d.log) {
+        const el = document.getElementById('updLog');
+        el.style.display = 'block';
+        el.textContent = d.log;
+      }
+    } catch (_) {}
+  }
 
   window.updApply = async function () {
     if (!latestVersion) return;
@@ -148,6 +170,8 @@
       setStatus(d.message || 'Обновление запущено', 'ok');
       document.getElementById('updWarn').style.display = 'block';
       document.getElementById('updWarn').textContent = 'Ожидание перезапуска… Лог: /tmp/uspd-web-update.log';
+      fetchLog();
+      const logPoll = setInterval(fetchLog, 3000);
 
       let tries = 0;
       const poll = setInterval(async function () {
@@ -155,9 +179,15 @@
         try {
           await fetch('/api/web/update/status', { credentials: 'same-origin' });
           clearInterval(poll);
+          clearInterval(logPoll);
+          fetchLog();
           setTimeout(function () { location.reload(); }, 1500);
         } catch (_) {
-          if (tries > 60) clearInterval(poll);
+          if (tries > 60) {
+            clearInterval(poll);
+            clearInterval(logPoll);
+            fetchLog();
+          }
         }
       }, 2000);
     } catch (e) {
