@@ -61,24 +61,24 @@ log "Installed files to ${INSTALL_DIR}"
 rm -f "$TARBALL" 2>/dev/null || true
 
 log "Restarting ${SERVICE}..."
+restarted=0
 if command -v systemctl >/dev/null 2>&1; then
-  if as_root systemctl restart "$SERVICE"; then
+  if as_root systemctl restart "$SERVICE" 2>/dev/null; then
     log "Restarted via systemctl ${SERVICE}"
-    log "=== update complete ==="
-    exit 0
-  fi
-  if as_root systemctl start "$SERVICE"; then
+    restarted=1
+  elif as_root systemctl start "$SERVICE" 2>/dev/null; then
     log "Started via systemctl ${SERVICE}"
-    log "=== update complete ==="
-    exit 0
+    restarted=1
+  else
+    log "WARN: systemd unit ${SERVICE} not available, using nohup"
   fi
-  log "ERROR: systemctl failed"
-  exit 1
 fi
 
-pkill -f "${INSTALL_DIR}/${BINARY}" 2>/dev/null || true
-sleep 1
-cd "$INSTALL_DIR"
-nohup "./${BINARY}" >> /home/orangepi/uspd-web.log 2>&1 &
-log "Started via nohup (pid $!)"
+if [ "$restarted" -eq 0 ]; then
+  pkill -x "$BINARY" 2>/dev/null || true
+  sleep 1
+  cd "$INSTALL_DIR"
+  nohup "./${BINARY}" >> "${INSTALL_DIR}/uspd.log" 2>&1 &
+  log "Started via nohup (pid $!)"
+fi
 log "=== update complete ==="
