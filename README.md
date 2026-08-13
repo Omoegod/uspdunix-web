@@ -2,8 +2,8 @@
 
 > Веб-конфигуратор УСПД для Linux **ARMv7**
 
-[![Releases](https://img.shields.io/github/v/release/Omoegod/uspd-web-releases?label=release&style=flat-square)](https://github.com/Omoegod/uspd-web-releases/releases)
-[![Platform](https://img.shields.io/badge/platform-linux%20armv7-blue?style=flat-square)](https://github.com/Omoegod/uspd-web-releases)
+[![Releases](https://img.shields.io/github/v/release/Omoegod/uspdunix-web?label=release&style=flat-square)](https://github.com/Omoegod/uspdunix-web/releases)
+[![Platform](https://img.shields.io/badge/platform-linux%20armv7-blue?style=flat-square)](https://github.com/Omoegod/uspdunix-web)
 [![Go](https://img.shields.io/badge/go-1.26-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 
 Публичный репозиторий с готовыми сборками **uspd-web** — веб-интерфейса для настройки УСПД и RouterRF.
@@ -35,7 +35,7 @@
 
 ```bash
 VERSION=1.0.0
-wget https://github.com/Omoegod/uspd-web-releases/releases/download/v${VERSION}/uspd-web-${VERSION}.tar.gz
+wget https://github.com/Omoegod/uspdunix-web/releases/download/v${VERSION}/uspd-web-${VERSION}.tar.gz
 ```
 
 ### 2. Установить
@@ -66,7 +66,7 @@ http://<IP-устройства>:8080
 ## Установка из репозитория
 
 ```bash
-git clone https://github.com/Omoegod/uspd-web-releases.git /opt/uspd-web
+git clone https://github.com/Omoegod/uspdunix-web.git /opt/uspd-web
 cd /opt/uspd-web
 chmod +x uspd-web
 ./uspd-web
@@ -132,7 +132,7 @@ sudo systemctl stop uspd-web
 
 VERSION=1.1.0
 wget -O /tmp/uspd-web.tar.gz \
-  https://github.com/Omoegod/uspd-web-releases/releases/download/v${VERSION}/uspd-web-${VERSION}.tar.gz
+  https://github.com/Omoegod/uspdunix-web/releases/download/v${VERSION}/uspd-web-${VERSION}.tar.gz
 
 tar -xzf /tmp/uspd-web.tar.gz -C /opt/uspd-web
 sudo systemctl start uspd-web
@@ -154,12 +154,7 @@ uspd-web-1.0.0.tar.gz
 
 ## Версии
 
-Актуальные релизы — в разделе [**Releases**](https://github.com/Omoegod/uspd-web-releases/releases).
-
-| Тег | Архив |
-|-----|-------|
-| `v1.0.0` | `uspd-web-1.0.0.tar.gz` |
-| `v1.1.0` | `uspd-web-1.1.0.tar.gz` |
+Актуальные релизы — в разделе [**Releases**](https://github.com/Omoegod/uspdunix-web/releases).
 
 ---
 
